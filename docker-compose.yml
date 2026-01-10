@@ -17,6 +17,7 @@ services:
       context: ./web
       dockerfile: Dockerfile
       args:
+        # 生产环境使用空字符串，让前端使用相对路径
         - NEXT_PUBLIC_API_URL=
     container_name: lottery-frontend
     ports:

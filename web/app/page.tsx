@@ -35,15 +35,30 @@ function HomeContent() {
     (searchParams.get("type") as LotteryType) || "ssq"
   );
 
-  // 同步状态到 URL
+  // 标记是否已完成初始化
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // 同步状态到 URL (仅在状态变化时，且已初始化后)
   useEffect(() => {
+    if (!isInitialized) {
+      setIsInitialized(true);
+      return;
+    }
+
     const params = new URLSearchParams();
     params.set("section", mainSection);
     params.set("tab", analysisTab);
     params.set("ptab", predictionTab);
     params.set("type", lotteryType);
-    router.replace(`?${params.toString()}`, { scroll: false });
-  }, [mainSection, analysisTab, predictionTab, lotteryType, router]);
+
+    const newUrl = `?${params.toString()}`;
+    const currentUrl = window.location.search;
+
+    // 只有当 URL 真正变化时才更新，避免无限循环
+    if (newUrl !== currentUrl) {
+      router.replace(newUrl, { scroll: false });
+    }
+  }, [mainSection, analysisTab, predictionTab, lotteryType, router, isInitialized]);
 
   const renderContent = () => {
     if (mainSection === "results") {

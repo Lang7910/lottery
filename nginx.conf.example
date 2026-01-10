@@ -1,0 +1,38 @@
+# nginx 配置示例 (lottery.langwu.top)
+# 放在 /etc/nginx/sites-available/ 或 /etc/nginx/conf.d/
+
+server {
+    listen 80;
+    listen 443 ssl;
+    server_name lottery.langwu.top;
+
+    # SSL 证书配置 (如果使用 HTTPS)
+    # ssl_certificate /path/to/cert.pem;
+    # ssl_certificate_key /path/to/key.pem;
+
+    # 前端 (Next.js on port 3721)
+    location / {
+        proxy_pass http://127.0.0.1:3721;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # API 代理到后端 (FastAPI on port 8000)
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # CORS headers (可选，后端已处理)
+        # add_header Access-Control-Allow-Origin *;
+    }
+}
