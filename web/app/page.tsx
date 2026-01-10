@@ -13,6 +13,7 @@ import { SSQPrediction } from "@/components/SSQPrediction";
 import { DLTPrediction } from "@/components/DLTPrediction";
 import { SSQKillAnalysis } from "@/components/SSQKillAnalysis";
 import { MetaphysicalPrediction } from "@/components/MetaphysicalPrediction";
+import { ComprehensiveRecommendation } from "@/components/ComprehensiveRecommendation";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Dice5, Loader2 } from "lucide-react";
 
@@ -67,6 +68,9 @@ function HomeContent() {
       }
       if (predictionTab === "metaphysical") {
         return <MetaphysicalPrediction lotteryType={lotteryType} />;
+      }
+      if (predictionTab === "comprehensive") {
+        return <ComprehensiveRecommendation lotteryType={lotteryType} />;
       }
     }
 

@@ -1,11 +1,11 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { BarChart3, ListOrdered, ChevronRight, TrendingUp, Sparkles, Clock, Scissors, Moon } from "lucide-react";
+import { BarChart3, ListOrdered, ChevronRight, TrendingUp, Sparkles, Clock, Scissors, Moon, Layers } from "lucide-react";
 
 export type MainSection = "results" | "analysis" | "prediction";
 export type AnalysisTab = "basic" | "trend";
-export type PredictionTab = "timeseries" | "kill" | "metaphysical";
+export type PredictionTab = "timeseries" | "kill" | "metaphysical" | "comprehensive";
 export type LotteryType = "ssq" | "dlt";
 
 interface SidebarProps {
@@ -184,6 +184,18 @@ export function Sidebar({
                             >
                                 <Moon className="w-3.5 h-3.5" />
                                 玄学预测
+                            </button>
+                            <button
+                                onClick={() => onPredictionTabChange("comprehensive")}
+                                className={cn(
+                                    "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
+                                    predictionTab === "comprehensive"
+                                        ? "bg-muted text-foreground font-medium"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                )}
+                            >
+                                <Layers className="w-3.5 h-3.5" />
+                                综合推荐
                             </button>
                         </div>
                     )}
