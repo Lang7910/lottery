@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { RefreshCw, Scissors, CheckCircle, XCircle, ChevronDown, ChevronUp, AlertTriangle, Sparkles, Eye, Table2, ChevronLeft, ChevronRight, Zap, Target, Shield, BarChart } from "lucide-react";
 import { cn, API_BASE_URL } from "@/lib/utils";
+import { AddToWatchlist } from "@/components/AddToWatchlist";
 
 interface MethodStats {
     success_rate: number;
@@ -283,6 +284,11 @@ export function SSQKillAnalysis() {
                                             <div className="ball ball-blue text-xs" style={{ width: 28, height: 28 }}>
                                                 {set.blue.toString().padStart(2, "0")}
                                             </div>
+                                            <AddToWatchlist
+                                                lotteryType="ssq"
+                                                numbers={{ red: set.red, blue: set.blue }}
+                                                source="kill"
+                                            />
                                         </div>
                                     ))}
                                 </div>

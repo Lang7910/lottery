@@ -6,6 +6,7 @@ import {
     Zap, Settings, Calendar, MapPin, User, CheckCircle, XCircle, AlertTriangle
 } from "lucide-react";
 import { cn, API_BASE_URL } from "@/lib/utils";
+import { AddToWatchlist } from "@/components/AddToWatchlist";
 
 // 五行配置
 const WUXING_CONFIG: Record<string, { icon: React.ReactNode; color: string; bgColor: string }> = {
@@ -383,6 +384,14 @@ export function MetaphysicalPrediction({ lotteryType = "ssq" }: MetaphysicalPred
                                             ))}
                                         </div>
                                     )}
+                                    <AddToWatchlist
+                                        lotteryType={lotteryType}
+                                        numbers={set.blue !== undefined
+                                            ? { red: set.red || set.front, blue: set.blue }
+                                            : { front: set.front || set.red, back: set.back }
+                                        }
+                                        source="metaphysical"
+                                    />
                                 </div>
                             ))}
                         </div>

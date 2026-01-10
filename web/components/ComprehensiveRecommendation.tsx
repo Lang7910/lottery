@@ -6,6 +6,7 @@ import {
     Sparkles, AlertTriangle, CheckCircle2, TrendingUp
 } from "lucide-react";
 import { cn, API_BASE_URL } from "@/lib/utils";
+import { AddToWatchlist } from "@/components/AddToWatchlist";
 
 interface ComprehensiveRecommendationProps {
     lotteryType?: "ssq" | "dlt";
@@ -426,6 +427,14 @@ export function ComprehensiveRecommendation({ lotteryType = "ssq" }: Comprehensi
                                             ))}
                                         </div>
                                     )}
+                                    <AddToWatchlist
+                                        lotteryType={lotteryType}
+                                        numbers={set.blue !== undefined
+                                            ? { red: set.red, blue: set.blue }
+                                            : { front: set.front, back: set.back }
+                                        }
+                                        source="comprehensive"
+                                    />
                                 </div>
                             ))}
                         </div>

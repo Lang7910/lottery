@@ -15,6 +15,7 @@ import { SSQKillAnalysis } from "@/components/SSQKillAnalysis";
 import { MetaphysicalPrediction } from "@/components/MetaphysicalPrediction";
 import { ComprehensiveRecommendation } from "@/components/ComprehensiveRecommendation";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserAuthButton } from "@/components/UserAuthButton";
 import { Dice5, Loader2 } from "lucide-react";
 
 function HomeContent() {
@@ -101,7 +102,22 @@ function HomeContent() {
             <Dice5 className="w-7 h-7 text-primary" />
             <span className="text-lg font-semibold text-foreground">彩票分析</span>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-3">
+            <a
+              href="/betting"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-muted hover:bg-border transition-colors"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" />
+                <rect x="14" y="14" width="7" height="7" rx="1" />
+              </svg>
+              投注中心
+            </a>
+            <UserAuthButton />
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 

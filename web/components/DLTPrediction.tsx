@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { RefreshCw, Sparkles, Settings, ChevronDown, ChevronUp, Sliders } from "lucide-react";
 import { cn, API_BASE_URL } from "@/lib/utils";
+import { useAuth } from "@clerk/nextjs";
+import { AddToWatchlist } from "@/components/AddToWatchlist";
 
 interface PredictionResult {
     method: string;
@@ -310,6 +312,11 @@ export function DLTPrediction() {
                                                     </div>
                                                 ))}
                                             </div>
+                                            <AddToWatchlist
+                                                lotteryType="dlt"
+                                                numbers={{ front: set.front, back: set.back }}
+                                                source="timeseries"
+                                            />
                                         </div>
                                     </div>
                                 </div>

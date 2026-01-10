@@ -55,6 +55,10 @@ app.include_router(ssq_router, prefix="/api")
 app.include_router(dlt_router, prefix="/api")
 app.include_router(analysis_router, prefix="/api")
 
+# 投注路由
+from routers.betting import router as betting_router
+app.include_router(betting_router, prefix="/api")
+
 
 @app.get("/")
 def root():

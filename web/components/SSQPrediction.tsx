@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { RefreshCw, Sparkles, Settings, ChevronDown, ChevronUp, Sliders } from "lucide-react";
 import { cn, API_BASE_URL } from "@/lib/utils";
+import { useAuth } from "@clerk/nextjs";
+import { AddToWatchlist } from "@/components/AddToWatchlist";
 
 interface PredictionResult {
     method: string;
@@ -307,6 +309,11 @@ export function SSQPrediction() {
                                             <div className="ball ball-blue text-xs" style={{ width: 30, height: 30 }}>
                                                 {set.blue?.toString().padStart(2, "0")}
                                             </div>
+                                            <AddToWatchlist
+                                                lotteryType="ssq"
+                                                numbers={{ red: set.red, blue: set.blue }}
+                                                source="timeseries"
+                                            />
                                         </div>
                                     </div>
                                 </div>
