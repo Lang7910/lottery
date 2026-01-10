@@ -6,12 +6,9 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // API 基础 URL
-// 生产环境: 使用相对路径 (nginx 代理到后端)
-// 开发环境: 使用 localhost:8000
-export const API_BASE_URL =
-  typeof window !== "undefined" && window.location.hostname !== "localhost"
-    ? ""  // 生产环境使用相对路径
-    : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
+// 生产环境: 默认空字符串 (相对路径，nginx 代理到后端)
+// 开发环境: 设置 NEXT_PUBLIC_API_URL=http://localhost:8000
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 // 格式化期号显示
 export function formatPeriod(period: string | number): string {
