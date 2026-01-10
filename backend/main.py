@@ -39,13 +39,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# 配置 CORS
+# 配置 CORS - 更宽松的设置以解决预检请求问题
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
+    allow_origins=["*"],  # 开发环境允许所有来源
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,  # 缓存预检请求1小时
 )
 
 # 注册路由

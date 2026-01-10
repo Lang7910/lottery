@@ -25,15 +25,16 @@ lottery/
 │   ├── routers/             # API 路由
 │   │   ├── ssq.py           # 双色球 CRUD API
 │   │   ├── dlt.py           # 大乐透 CRUD API
-│   │   └── analysis.py      # 统计分析 + 预测 API
+│   │   └── analysis.py      # 统计分析 + 预测 + 玄学 API
 │   ├── services/            # 业务服务
 │   │   ├── ssq_service.py   # 双色球同步服务
 │   │   ├── dlt_service.py   # 大乐透同步服务
 │   │   ├── ssq_analysis.py  # 双色球分析服务
 │   │   ├── dlt_analysis.py  # 大乐透分析服务
-│   │   └── prediction_service.py  # 时间序列预测服务
+│   │   ├── prediction_service.py  # 时间序列预测服务
+│   │   ├── kill_service.py  # 杀号分析服务
+│   │   └── metaphysical_service.py  # 玄学预测服务
 │   └── sources/             # 数据源（爬虫）
-│       └── scraper/
 ├── web/                     # Next.js 前端
 │   ├── app/
 │   │   ├── layout.tsx       # 根布局（主题提供者）
@@ -47,12 +48,15 @@ lottery/
 │   │   ├── DLTBasicAnalysis.tsx   # 大乐透基础分析
 │   │   ├── SSQTrendAnalysis.tsx   # 双色球走势分析
 │   │   ├── DLTTrendAnalysis.tsx   # 大乐透走势分析
-│   │   ├── SSQPrediction.tsx      # 双色球预测
-│   │   ├── DLTPrediction.tsx      # 大乐透预测
+│   │   ├── SSQPrediction.tsx      # 双色球时序预测
+│   │   ├── DLTPrediction.tsx      # 大乐透时序预测
+│   │   ├── SSQKillAnalysis.tsx    # 双色球杀号分析
+│   │   ├── MetaphysicalPrediction.tsx  # 玄学预测
 │   │   ├── ThemeToggle.tsx  # 主题切换
 │   │   └── ThemeProvider.tsx
 │   └── lib/utils.ts         # 工具函数 + API配置
-├── refer/                   # 参考脚本（独立Python）
+├── method.md                # 玄学预测方法论 (基础)
+├── method2.md               # 玄学预测方法论 (进阶)
 └── lottery.db               # SQLite 数据库
 ```
 
@@ -71,7 +75,6 @@ python main.py                    # 启动服务 (默认 8000 端口)
 npm install                       # 安装依赖
 npm run dev                       # 开发服务器 (默认 3000 端口)
 npm run build                     # 生产构建
-npm run lint                      # ESLint 检查
 ```
 
 ---
@@ -85,13 +88,39 @@ npm run lint                      # ESLint 检查
 
 ### 2. 数据分析
 - **基础分析**: 位置频率统计、热力图、分布图
-- **走势分析**: 各位置号码走势折线图（小倍数布局）
+- **走势分析**: 各位置号码走势折线图
 
 ### 3. 号码推荐
 - **时间序列预测**: MA、ES、RF、SVR、ARIMA
 - **参数可调**: 窗口大小、平滑系数、树数量等
 - **多组推荐**: 支持3/5/10注
 - **聚合方法**: 多数投票、平均法、加权平均
+
+### 4. 杀号策略
+- **红球杀号**: 17种杀号规则（极距杀号、AC值杀号等）
+- **蓝球杀号**: 6种杀号规则
+- **综合杀号**: 多种策略投票
+- **自定义回看期数**: 20-2000期
+
+### 5. 玄学预测 ⭐ NEW
+基于中国传统术数的多方法预测系统，引入"天时·地利·人和"三才模型。
+
+#### 三才输入
+| 三才 | 输入项 | 说明 |
+|-----|------|------|
+| 天时 | 开奖时间 | 自动计算或自定义 |
+| 地利 | 省市选择 | 购彩地点→方位五行 |
+| 人和 | 出生日期/时辰/性别 | 计算财星/命卦 |
+
+#### 6种预测方法
+| 方法 | 原理 | 必需输入 |
+|-----|------|---------|
+| 八字五行法 | 开奖时间干支→五行旺衰→河图数 | 天时 |
+| 本命财星法 | 日主五行→我克者为财 | 人和 |
+| 刑冲合害校验 | 生肖与日支冲合检测 | 天时+人和 |
+| 命卦空间法 | 八宅法方位吉凶 | 人和+地利 |
+| 梅花易数法 | 时间戳起卦→体用生克 | — |
+| 六十甲子周期法 | 干支周期共振 | 天时 |
 
 ---
 
@@ -100,9 +129,9 @@ npm run lint                      # ESLint 检查
 ### 双色球 `/api/ssq/`
 | 端点 | 方法 | 描述 |
 |------|------|------|
-| `/list` | GET | 获取历史数据 |
+| `/` | GET | 获取历史数据 |
 | `/sync` | POST | 增量同步 |
-| `/refresh` | POST | 全量刷新 |
+| `/fetch` | POST | 按条件获取并保存 |
 
 ### 大乐透 `/api/dlt/`
 同上结构
@@ -114,7 +143,9 @@ npm run lint                      # ESLint 检查
 | `/ssq/trend` | GET | 走势数据 |
 | `/ssq/predict` | GET | 单方法预测 |
 | `/ssq/recommend` | GET | 多组推荐 |
-| `/dlt/*` | GET | 大乐透同上 |
+| `/ssq/kill` | GET | 杀号分析 |
+| `/{lottery}/metaphysical` | POST | 玄学预测 (多方法) |
+| `/{lottery}/metaphysical` | GET | 玄学预测 (简单) |
 
 ---
 
@@ -122,16 +153,8 @@ npm run lint                      # ESLint 检查
 使用 URL 查询参数持久化状态：
 - `section`: results / analysis / prediction
 - `tab`: basic / trend
-- `ptab`: timeseries
+- `ptab`: timeseries / kill / metaphysical
 - `type`: ssq / dlt
-
----
-
-## 待开发功能
-- [ ] 杀号策略（红球/蓝球杀号规则）
-- [ ] LSTM 深度学习预测
-- [ ] 历史命中率回测
-- [ ] 用户自定义号码收藏
 
 ---
 

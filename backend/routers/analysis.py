@@ -223,47 +223,107 @@ def get_ssq_kill_analysis(
 
 # ==================== 玄学预测 API ==================== #
 
-@router.get("/ssq/metaphysical")
-def get_ssq_metaphysical(
-    num_sets: int = Query(5, description="推荐组数", ge=1, le=10),
-    custom_time: str = Query(None, description="自定义时间 (格式: YYYY-MM-DDTHH:MM)"),
+from pydantic import BaseModel
+from typing import Optional, List
+
+class MetaphysicalRequest(BaseModel):
+    """玄学预测请求"""
+    methods: Optional[List[str]] = None  # 选择的方法
+    num_sets: int = 5
+    # 天时
+    custom_time: Optional[str] = None  # 自定义开奖时间
+    # 地利
+    location: Optional[str] = None  # 省市名
+    # 人和
+    birth_date: Optional[str] = None  # 出生日期 YYYY-MM-DD
+    birth_hour: Optional[int] = None  # 出生时辰 0-23
+    gender: Optional[str] = "male"  # male/female
+    # 梅花易数
+    meihua_seed: Optional[int] = None
+
+
+@router.post("/{lottery}/metaphysical")
+def predict_metaphysical(
+    lottery: str,
+    request: MetaphysicalRequest,
 ):
-    """双色球玄学预测（基于八字五行、河图洛书）"""
+    """
+    玄学预测 (多方法)
+    
+    lottery: ssq / dlt
+    
+    methods可选值:
+    - bazi_wuxing: 八字五行法 (需要天时)
+    - wealth_element: 本命财星法 (需要人和.birth_date)
+    - conflict_check: 刑冲合害校验 (需要天时+人和)
+    - mingua_direction: 命卦空间法 (需要人和+地利)
+    - meihua: 梅花易数法
+    - jiazi_cycle: 六十甲子周期法 (需要天时)
+    
+    不传methods则自动启用所有可用方法
+    """
     from services.metaphysical_service import MetaphysicalService
     from datetime import datetime
+    
+    service = MetaphysicalService()
+    
+    # 解析时间
+    draw_time = None
+    if request.custom_time:
+        try:
+            draw_time = datetime.fromisoformat(
+                request.custom_time.replace("T", " ").replace("Z", "")
+            )
+        except:
+            pass
+    
+    # 解析出生日期
+    birth_dt = None
+    if request.birth_date:
+        try:
+            birth_dt = datetime.strptime(request.birth_date, "%Y-%m-%d")
+            if request.birth_hour is not None:
+                birth_dt = birth_dt.replace(hour=request.birth_hour)
+        except:
+            pass
+    
+    return service.predict(
+        lottery_type=lottery,
+        methods=request.methods,
+        num_sets=request.num_sets,
+        draw_time=draw_time,
+        location=request.location,
+        birth_date=birth_dt,
+        birth_hour=request.birth_hour,
+        gender=request.gender or "male",
+        meihua_seed=request.meihua_seed
+    )
+
+
+@router.get("/{lottery}/metaphysical")
+def get_metaphysical_simple(
+    lottery: str,
+    num_sets: int = Query(5, description="推荐组数", ge=1, le=10),
+    custom_time: str = Query(None, description="自定义时间"),
+):
+    """简单GET接口 (仅八字五行法)"""
+    from services.metaphysical_service import MetaphysicalService
+    from datetime import datetime
+    
     service = MetaphysicalService()
     draw_time = None
     if custom_time:
         try:
-            draw_time = datetime.fromisoformat(custom_time.replace("T", " ").replace("Z", ""))
+            draw_time = datetime.fromisoformat(
+                custom_time.replace("T", " ").replace("Z", "")
+            )
         except:
             pass
-    return service.predict_ssq(draw_time=draw_time, num_sets=num_sets)
+    
+    return service.predict(
+        lottery_type=lottery,
+        methods=["bazi_wuxing", "meihua", "jiazi_cycle"],
+        num_sets=num_sets,
+        draw_time=draw_time
+    )
 
-
-@router.get("/dlt/metaphysical")
-def get_dlt_metaphysical(
-    num_sets: int = Query(5, description="推荐组数", ge=1, le=10),
-    custom_time: str = Query(None, description="自定义时间 (格式: YYYY-MM-DDTHH:MM)"),
-):
-    """大乐透玄学预测（基于八字五行、河图洛书）"""
-    from services.metaphysical_service import MetaphysicalService
-    from datetime import datetime
-    service = MetaphysicalService()
-    draw_time = None
-    if custom_time:
-        try:
-            draw_time = datetime.fromisoformat(custom_time.replace("T", " ").replace("Z", ""))
-        except:
-            pass
-    return service.predict_dlt(draw_time=draw_time, num_sets=num_sets)
-
-
-@router.get("/metaphysical/meihua")
-def get_meihua_prediction(
-    seed: int = Query(None, description="随机种子（不填则使用当前时间戳）"),
-):
-    """梅花易数起卦预测"""
-    from services.metaphysical_service import MetaphysicalService
-    service = MetaphysicalService()
-    return service.meihua_predict(seed=seed)
