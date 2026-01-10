@@ -40,11 +40,31 @@
 
 ## 🚀 快速开始
 
-### 环境要求
+### 方式一：Docker 部署（推荐）
+
+```bash
+# 1. 克隆项目
+git clone <repo-url>
+cd lottery
+
+# 2. 一键启动
+docker-compose up -d
+
+# 3. 访问 http://localhost:3000
+```
+
+停止服务：
+```bash
+docker-compose down
+```
+
+### 方式二：本地开发
+
+#### 环境要求
 - Python 3.10+
 - Node.js 18+
 
-### 安装与运行
+#### 安装与运行
 
 ```bash
 # 1. 克隆项目

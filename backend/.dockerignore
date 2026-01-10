@@ -1,0 +1,17 @@
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv
+ENV
+.git
+.gitignore
+.idea
+.vscode
+*.log
+.coverage
+htmlcov
+.pytest_cache
+*.egg-info
