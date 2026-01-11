@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { ClerkProvider } from "@clerk/nextjs";
-import { zhCN } from "@clerk/localizations";
+import dynamic from "next/dynamic";
+
+// 动态导入 ClerkProvider，禁用 SSR 以避免构建时错误
+const ClerkProviderWrapper = dynamic(
+  () => import("@/components/ClerkProviderWrapper").then(mod => mod.ClerkProviderWrapper),
+  { ssr: false }
+);
 
 export const metadata: Metadata = {
   title: "彩票数据分析",
@@ -15,15 +20,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider localization={zhCN}>
-      <html lang="zh-CN" suppressHydrationWarning>
-        <body className="antialiased font-sans">
+    <html lang="zh-CN" suppressHydrationWarning>
+      <body className="antialiased font-sans">
+        <ClerkProviderWrapper>
           <ThemeProvider>
             {children}
           </ThemeProvider>
-        </body>
-      </html>
-    </ClerkProvider>
+        </ClerkProviderWrapper>
+      </body>
+    </html>
   );
 }
+
 

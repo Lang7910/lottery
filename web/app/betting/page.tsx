@@ -9,6 +9,9 @@ import { Dice5, Bookmark, Send, History, ArrowLeft } from "lucide-react";
 import { cn, API_BASE_URL } from "@/lib/utils";
 import Link from "next/link";
 
+// 禁用静态预渲染，因为需要 Clerk 认证
+export const dynamic = "force-dynamic";
+
 type Tab = "watchlist" | "betting" | "history";
 
 export default function BettingPage() {
