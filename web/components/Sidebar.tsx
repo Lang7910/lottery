@@ -1,12 +1,18 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { BarChart3, ListOrdered, ChevronRight, TrendingUp, Sparkles, Clock, Scissors, Moon, Layers } from "lucide-react";
+import { BarChart3, ListOrdered, ChevronRight, TrendingUp, Sparkles, Clock, Scissors, Moon, Layers, ChevronDown } from "lucide-react";
 
 export type MainSection = "results" | "analysis" | "prediction";
 export type AnalysisTab = "basic" | "trend";
 export type PredictionTab = "timeseries" | "kill" | "metaphysical" | "comprehensive";
-export type LotteryType = "ssq" | "dlt";
+export type LotteryType = "ssq" | "dlt" | "hk6";
+
+const LOTTERY_OPTIONS = [
+    { value: "ssq", label: "双色球", color: "text-red-500" },
+    { value: "dlt", label: "大乐透", color: "text-blue-500" },
+    { value: "hk6", label: "六合彩", color: "text-green-500" },
+] as const;
 
 interface SidebarProps {
     mainSection: MainSection;
@@ -29,37 +35,34 @@ export function Sidebar({
     onPredictionTabChange,
     onLotteryTypeChange,
 }: SidebarProps) {
+    const currentLottery = LOTTERY_OPTIONS.find(o => o.value === lotteryType);
+
     return (
         <aside className="w-56 shrink-0 border-r border-border bg-card/50 min-h-[calc(100vh-64px)]">
             <div className="p-4 space-y-6">
-                {/* 彩种选择 */}
+                {/* 彩种选择 - 下拉菜单 */}
                 <div className="space-y-2">
                     <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         彩种
                     </h3>
-                    <div className="flex gap-1">
-                        <button
-                            onClick={() => onLotteryTypeChange("ssq")}
+                    <div className="relative">
+                        <select
+                            value={lotteryType}
+                            onChange={(e) => onLotteryTypeChange(e.target.value as LotteryType)}
                             className={cn(
-                                "flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                                lotteryType === "ssq"
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-muted hover:bg-border"
+                                "w-full px-3 py-2.5 rounded-lg text-sm font-semibold appearance-none cursor-pointer",
+                                "bg-muted border border-border hover:bg-border/80 transition-colors",
+                                "focus:outline-none focus:ring-2 focus:ring-primary/50",
+                                currentLottery?.color
                             )}
                         >
-                            双色球
-                        </button>
-                        <button
-                            onClick={() => onLotteryTypeChange("dlt")}
-                            className={cn(
-                                "flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                                lotteryType === "dlt"
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-muted hover:bg-border"
-                            )}
-                        >
-                            大乐透
-                        </button>
+                            {LOTTERY_OPTIONS.map(option => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                     </div>
                 </div>
 

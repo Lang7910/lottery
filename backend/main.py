@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import CORS_ORIGINS
 from database import init_db
 from routers import ssq_router, dlt_router
+from routers.hk6 import router as hk6_router
 from routers.analysis import router as analysis_router
 
 # 配置日志
@@ -34,7 +35,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="彩票数据分析 API",
-    description="双色球和大乐透数据获取、统计与预测",
+    description="双色球、大乐透和六合彩数据获取、统计与预测",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -53,6 +54,7 @@ app.add_middleware(
 # 注册路由
 app.include_router(ssq_router, prefix="/api/ssq")
 app.include_router(dlt_router, prefix="/api/dlt")
+app.include_router(hk6_router, prefix="/api/hk6")
 app.include_router(analysis_router, prefix="/api")
 
 # 投注路由

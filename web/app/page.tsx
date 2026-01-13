@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Sidebar, MainSection, AnalysisTab, PredictionTab, LotteryType } from "@/components/Sidebar";
 import { SSQPanel } from "@/components/SSQPanel";
 import { DLTPanel } from "@/components/DLTPanel";
+import { HK6Panel } from "@/components/HK6Panel";
 import { SSQBasicAnalysis } from "@/components/SSQBasicAnalysis";
 import { DLTBasicAnalysis } from "@/components/DLTBasicAnalysis";
 import { SSQTrendAnalysis } from "@/components/SSQTrendAnalysis";
@@ -64,7 +65,19 @@ function HomeContent() {
 
   const renderContent = () => {
     if (mainSection === "results") {
-      return lotteryType === "ssq" ? <SSQPanel /> : <DLTPanel />;
+      if (lotteryType === "ssq") return <SSQPanel />;
+      if (lotteryType === "dlt") return <DLTPanel />;
+      if (lotteryType === "hk6") return <HK6Panel />;
+    }
+
+    // HK6 暂不支持分析和预测功能
+    if (lotteryType === "hk6") {
+      return (
+        <div className="glass-card p-8 text-center">
+          <h2 className="text-xl font-semibold text-foreground mb-2">六合彩分析功能开发中</h2>
+          <p className="text-muted-foreground">请先查看开奖结果页面</p>
+        </div>
+      );
     }
 
     if (mainSection === "analysis") {
@@ -84,10 +97,10 @@ function HomeContent() {
         return lotteryType === "ssq" ? <SSQKillAnalysis /> : <DLTKillAnalysis />;
       }
       if (predictionTab === "metaphysical") {
-        return <MetaphysicalPrediction lotteryType={lotteryType} />;
+        return <MetaphysicalPrediction lotteryType={lotteryType as "ssq" | "dlt"} />;
       }
       if (predictionTab === "comprehensive") {
-        return <ComprehensiveRecommendation lotteryType={lotteryType} />;
+        return <ComprehensiveRecommendation lotteryType={lotteryType as "ssq" | "dlt"} />;
       }
     }
 
