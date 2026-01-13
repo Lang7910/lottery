@@ -221,6 +221,21 @@ def get_ssq_kill_analysis(
     return service.get_kill_analysis(lookback, num_sets, page, page_size)
 
 
+@router.get("/dlt/kill")
+def get_dlt_kill_analysis(
+    lookback: int = Query(100, description="历史数据量", ge=20, le=2000),
+    num_sets: int = Query(5, description="每策略推荐组数", ge=1, le=10),
+    page: int = Query(1, description="历史记录页码", ge=1),
+    page_size: int = Query(20, description="每页记录数", ge=10, le=50),
+    db: Session = Depends(get_db),
+):
+    """大乐透杀号分析（6种前区+3种后区方法，含效率指标和多策略推荐）"""
+    from services.dlt_kill_service import DLTKillService
+    service = DLTKillService(db)
+    return service.get_kill_analysis(lookback, num_sets, page, page_size)
+
+
+
 # ==================== 玄学预测 API ==================== #
 
 from pydantic import BaseModel

@@ -72,7 +72,7 @@ export function SSQPanel() {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${API_BASE_URL}/api/ssq/?${buildQueryParams()}`);
+            const res = await fetch(`${API_BASE_URL}/api/ssq?${buildQueryParams()}`);
             if (!res.ok) throw new Error("获取数据失败");
             const json = await res.json();
             setData(json);

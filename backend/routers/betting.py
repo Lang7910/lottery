@@ -24,6 +24,7 @@ class WatchlistCreate(BaseModel):
     numbers: Dict[str, Any]
     source: Optional[str] = "manual"
     note: Optional[str] = None
+    target_period: Optional[int] = None
 
 
 class WatchlistUpdate(BaseModel):
@@ -117,6 +118,7 @@ def get_watchlist(
         {
             "id": item.id,
             "lottery_type": item.lottery_type,
+            "target_period": item.target_period,
             "numbers": item.numbers,
             "source": item.source,
             "note": item.note,
@@ -140,7 +142,8 @@ def add_to_watchlist(
         lottery_type=data.lottery_type,
         numbers=data.numbers,
         source=data.source,
-        note=data.note
+        note=data.note,
+        target_period=data.target_period
     )
     return {
         "id": item.id,
@@ -262,3 +265,43 @@ def get_stats(
     service = BettingService(db)
     user = service.get_or_create_user(clerk_id)
     return service.get_user_stats(user.id)
+
+
+# ==================== 开奖检查 API ==================== #
+
+class CheckBetsRequest(BaseModel):
+    lottery_type: str  # ssq or dlt
+    period: int
+    draw_result: Dict[str, Any]  # {"red": [1,2,3,4,5,6], "blue": 7} for SSQ
+
+
+@router.post("/check")
+def check_pending_bets(
+    data: CheckBetsRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    检查指定期号的所有待开奖投注
+    需要传入开奖结果进行对比
+    """
+    service = BettingService(db)
+    checked_bets = service.check_all_pending_bets(
+        lottery_type=data.lottery_type,
+        period=data.period,
+        draw_result=data.draw_result
+    )
+    return {
+        "checked_count": len(checked_bets),
+        "results": [
+            {
+                "id": bet.id,
+                "status": bet.status,
+                "prize_level": bet.prize_level,
+                "prize_amount": bet.prize_amount,
+                "matched_red": bet.matched_red,
+                "matched_blue": bet.matched_blue
+            }
+            for bet in checked_bets
+        ]
+    }
+

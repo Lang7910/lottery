@@ -12,6 +12,7 @@ import { DLTTrendAnalysis } from "@/components/DLTTrendAnalysis";
 import { SSQPrediction } from "@/components/SSQPrediction";
 import { DLTPrediction } from "@/components/DLTPrediction";
 import { SSQKillAnalysis } from "@/components/SSQKillAnalysis";
+import { DLTKillAnalysis } from "@/components/DLTKillAnalysis";
 import { MetaphysicalPrediction } from "@/components/MetaphysicalPrediction";
 import { ComprehensiveRecommendation } from "@/components/ComprehensiveRecommendation";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -80,7 +81,7 @@ function HomeContent() {
         return lotteryType === "ssq" ? <SSQPrediction /> : <DLTPrediction />;
       }
       if (predictionTab === "kill") {
-        return <SSQKillAnalysis />;
+        return lotteryType === "ssq" ? <SSQKillAnalysis /> : <DLTKillAnalysis />;
       }
       if (predictionTab === "metaphysical") {
         return <MetaphysicalPrediction lotteryType={lotteryType} />;

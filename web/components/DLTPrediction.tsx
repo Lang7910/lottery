@@ -47,6 +47,7 @@ export function DLTPrediction() {
     const [data, setData] = useState<RecommendResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [nextPeriod, setNextPeriod] = useState<number>(0);
 
     const [lookback, setLookback] = useState(100);
     const [numSets, setNumSets] = useState(5);
@@ -79,6 +80,15 @@ export function DLTPrediction() {
 
     useEffect(() => {
         loadPredictions();
+        // 获取下一期期号
+        fetch(`${API_BASE_URL}/api/dlt?limit=1`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.items?.[0]?.period) {
+                    setNextPeriod(parseInt(data.items[0].period) + 1);
+                }
+            })
+            .catch(console.error);
     }, []);
 
     return (
@@ -316,6 +326,7 @@ export function DLTPrediction() {
                                                 lotteryType="dlt"
                                                 numbers={{ front: set.front, back: set.back }}
                                                 source="timeseries"
+                                                targetPeriod={nextPeriod}
                                             />
                                         </div>
                                     </div>

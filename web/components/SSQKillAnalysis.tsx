@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { RefreshCw, Scissors, CheckCircle, XCircle, ChevronDown, ChevronUp, AlertTriangle, Sparkles, Eye, Table2, ChevronLeft, ChevronRight, Zap, Target, Shield, BarChart } from "lucide-react";
+import { RefreshCw, Scissors, CheckCircle, XCircle, ChevronDown, ChevronUp, AlertTriangle, Sparkles, Eye, Table2, ChevronLeft, ChevronRight, Zap, Target, Shield, BarChart, Trophy } from "lucide-react";
 import { cn, API_BASE_URL } from "@/lib/utils";
 import { AddToWatchlist } from "@/components/AddToWatchlist";
 
@@ -62,6 +62,7 @@ interface KillData {
         methods_success_15: number;
         combined_success_rate: number;
     };
+    method_combinations: MethodCombination[];  // 方法组合排名
     next_prediction: {
         period: string;
         red_kills: Record<string, KillResult & MethodStats>;
@@ -79,7 +80,20 @@ interface KillData {
     recommended_sets: Record<string, Strategy>;
 }
 
+interface MethodCombination {
+    methods: number[];
+    method_names: string[];
+    success_rate: number;
+    unique_kills: number;
+    kill_numbers: number[];
+    efficiency: number;
+    method_count: number;
+}
+
 const STRATEGY_ICONS: Record<string, React.ReactNode> = {
+    top_combo_1: <Trophy className="w-4 h-4" />,
+    top_combo_2: <Trophy className="w-4 h-4" />,
+    top_combo_3: <Trophy className="w-4 h-4" />,
     random: <Sparkles className="w-4 h-4" />,
     high_success: <Target className="w-4 h-4" />,
     high_efficiency: <Zap className="w-4 h-4" />,
@@ -213,8 +227,10 @@ export function SSQKillAnalysis() {
                         </h3>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                             <div className="text-center p-3 rounded-lg bg-muted/50">
-                                <div className="text-2xl font-bold text-foreground">{data.summary_stats.avg_total_kills}</div>
-                                <div className="text-xs text-muted-foreground">平均杀号数</div>
+                                <div className="text-2xl font-bold text-foreground">
+                                    {data.next_prediction.killed_red_count} + {data.next_prediction.killed_blue_count}
+                                </div>
+                                <div className="text-xs text-muted-foreground">杀号数 (红+蓝)</div>
                             </div>
                             <div className="text-center p-3 rounded-lg bg-muted/50">
                                 <div className="text-2xl font-bold text-foreground">{data.summary_stats.combined_success_rate}%</div>
@@ -225,11 +241,94 @@ export function SSQKillAnalysis() {
                                 <div className="text-xs text-muted-foreground">≥15方法成功</div>
                             </div>
                             <div className="text-center p-3 rounded-lg bg-muted/50">
-                                <div className="text-2xl font-bold text-yellow-500">{data.summary_stats.methods_success_10}</div>
-                                <div className="text-xs text-muted-foreground">≥10方法成功</div>
+                                <div className="text-2xl font-bold text-foreground">
+                                    {data.next_prediction.available_reds.length} / {data.next_prediction.available_blues.length}
+                                </div>
+                                <div className="text-xs text-muted-foreground">可选号码 (红/蓝)</div>
                             </div>
                         </div>
                     </div>
+
+                    {/* 方法组合排名 */}
+                    {data.method_combinations && data.method_combinations.length > 0 && (
+                        <div className="glass-card p-5">
+                            <div className="flex items-center gap-2 mb-4">
+                                <Target className="w-5 h-5 text-primary" />
+                                <h3 className="font-semibold text-lg">最佳方法组合排名</h3>
+                                <span className="text-xs text-muted-foreground">按效率排序 (效率 = 成功率 × 杀号数)</span>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b border-border">
+                                            <th className="py-2 px-2 text-left text-xs font-medium text-muted-foreground">排名</th>
+                                            <th className="py-2 px-2 text-left text-xs font-medium text-muted-foreground">方法组合</th>
+                                            <th className="py-2 px-2 text-center text-xs font-medium text-muted-foreground">成功率</th>
+                                            <th className="py-2 px-2 text-center text-xs font-medium text-muted-foreground">杀号数</th>
+                                            <th className="py-2 px-2 text-center text-xs font-medium text-muted-foreground">效率</th>
+                                            <th className="py-2 px-2 text-left text-xs font-medium text-muted-foreground">杀号</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {data.method_combinations.slice(0, 10).map((combo, idx) => (
+                                            <tr key={idx} className={cn(
+                                                "border-b border-border/50 hover:bg-muted/20",
+                                                idx < 3 && "bg-primary/5"
+                                            )}>
+                                                <td className="py-2 px-2 font-bold">
+                                                    {idx < 3 ? (
+                                                        <span className={cn(
+                                                            "w-6 h-6 rounded-full flex items-center justify-center text-xs",
+                                                            idx === 0 && "bg-yellow-500 text-black",
+                                                            idx === 1 && "bg-gray-400 text-black",
+                                                            idx === 2 && "bg-amber-700 text-white"
+                                                        )}>
+                                                            {idx + 1}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-muted-foreground">{idx + 1}</span>
+                                                    )}
+                                                </td>
+                                                <td className="py-2 px-2">
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {combo.method_names.map((name, i) => (
+                                                            <span key={i} className="px-1.5 py-0.5 rounded bg-muted text-xs">
+                                                                {name}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                                <td className={cn(
+                                                    "py-2 px-2 text-center font-semibold",
+                                                    combo.success_rate >= 70 ? "text-green-500" : combo.success_rate >= 50 ? "text-yellow-500" : "text-red-500"
+                                                )}>
+                                                    {combo.success_rate}%
+                                                </td>
+                                                <td className="py-2 px-2 text-center font-semibold text-foreground">
+                                                    {combo.unique_kills}
+                                                </td>
+                                                <td className="py-2 px-2 text-center font-bold text-primary">
+                                                    {combo.efficiency}
+                                                </td>
+                                                <td className="py-2 px-2">
+                                                    <div className="flex gap-0.5 flex-wrap">
+                                                        {combo.kill_numbers.slice(0, 8).map(n => (
+                                                            <span key={n} className="w-5 h-5 rounded-full bg-red-500/80 text-white text-[10px] flex items-center justify-center">
+                                                                {n.toString().padStart(2, "0")}
+                                                            </span>
+                                                        ))}
+                                                        {combo.kill_numbers.length > 8 && (
+                                                            <span className="text-xs text-muted-foreground">+{combo.kill_numbers.length - 8}</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
 
                     {/* 多策略推荐号码 */}
                     <div className="glass-card overflow-hidden">
@@ -288,6 +387,7 @@ export function SSQKillAnalysis() {
                                                 lotteryType="ssq"
                                                 numbers={{ red: set.red, blue: set.blue }}
                                                 source="kill"
+                                                targetPeriod={parseInt(data.next_prediction.period)}
                                             />
                                         </div>
                                     ))}

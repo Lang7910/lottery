@@ -21,6 +21,7 @@ interface NumberScore {
 export function ComprehensiveRecommendation({ lotteryType = "ssq" }: ComprehensiveRecommendationProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [nextPeriod, setNextPeriod] = useState<number>(0);
 
     // 各模块数据
     const [timeseriesData, setTimeseriesData] = useState<any>(null);
@@ -218,6 +219,15 @@ export function ComprehensiveRecommendation({ lotteryType = "ssq" }: Comprehensi
 
     useEffect(() => {
         loadAllData();
+        // 获取下一期期号
+        fetch(`${API_BASE_URL}/api/${lotteryType}?limit=1`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.items?.[0]?.period) {
+                    setNextPeriod(parseInt(data.items[0].period) + 1);
+                }
+            })
+            .catch(console.error);
     }, [lotteryType]);
 
     const getScoreColor = (score: number) => {
@@ -434,6 +444,7 @@ export function ComprehensiveRecommendation({ lotteryType = "ssq" }: Comprehensi
                                             : { front: set.front, back: set.back }
                                         }
                                         source="comprehensive"
+                                        targetPeriod={nextPeriod}
                                     />
                                 </div>
                             ))}

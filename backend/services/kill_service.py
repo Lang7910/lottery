@@ -352,11 +352,16 @@ class SSQKillService:
         all_killed_blues = set(blue_kill_count.keys())
         available_blues = sorted([n for n in range(1, 17) if n not in all_killed_blues])
         
+        # 分析方法组合 - 找出最佳组合
+        method_combinations = self._analyze_method_combinations(
+            history, next_red_kills, red_stats, total_red
+        )
+        
         # 生成多种策略的推荐号码
         recommended_sets = self._generate_recommendations(
             available_reds, available_blues, 
             next_red_kills, next_blue_kills,
-            red_stats, blue_stats, num_sets
+            red_stats, blue_stats, method_combinations, num_sets
         )
         
         # 分页历史记录
@@ -378,8 +383,9 @@ class SSQKillService:
             "red_stats": red_stats,
             "blue_stats": blue_stats,
             "summary_stats": summary_stats,
+            "method_combinations": method_combinations,  # 方法组合排名
             "next_prediction": {
-                "period": last.period,
+                "period": str(int(last.period) + 1),  # 下一期期号
                 "red_kills": {m: {"kills": k, "name": RED_KILL_METHOD_NAMES[m], **red_stats[m]} 
                              for m, k in next_red_kills.items()},
                 "blue_kills": {m: {"kills": k, "name": BLUE_KILL_METHOD_NAMES[m], **blue_stats[m]} 
@@ -393,6 +399,79 @@ class SSQKillService:
             "recommended_sets": recommended_sets
         }
     
+    def _analyze_method_combinations(
+        self,
+        history: List[Dict],
+        next_red_kills: Dict[int, List[int]],
+        red_stats: Dict[int, Dict],
+        total_periods: int
+    ) -> List[Dict]:
+        """
+        分析方法组合的效果
+        找出成功率高且杀号多的最佳组合
+        """
+        from itertools import combinations
+        
+        # 获取成功率≥60%的方法作为候选
+        candidate_methods = [m for m, s in red_stats.items() if s["success_rate"] >= 60]
+        
+        if len(candidate_methods) < 3:
+            candidate_methods = list(red_stats.keys())
+        
+        # 限制候选方法数量以控制计算量
+        if len(candidate_methods) > 12:
+            # 按效率排序，取前12个
+            sorted_methods = sorted(
+                candidate_methods, 
+                key=lambda m: red_stats[m]["efficiency"], 
+                reverse=True
+            )[:12]
+            candidate_methods = sorted_methods
+        
+        combo_results = []
+        
+        # 评估不同大小的组合 (2-8个方法的组合)
+        for combo_size in range(2, min(9, len(candidate_methods) + 1)):
+            for combo in combinations(candidate_methods, combo_size):
+                # 计算这个组合在历史上的表现
+                combo_success_count = 0
+                
+                for record in history:
+                    # 检查组合中的所有方法是否都成功
+                    all_success = all(
+                        record["red_kills"].get(m, {}).get("success", False)
+                        for m in combo
+                    )
+                    if all_success:
+                        combo_success_count += 1
+                
+                # 计算组合的杀号数（去重）
+                combo_kills = set()
+                for m in combo:
+                    combo_kills.update(next_red_kills.get(m, []))
+                unique_kills = len(combo_kills)
+                
+                # 计算组合成功率
+                combo_success_rate = (combo_success_count / total_periods * 100) if total_periods > 0 else 0
+                
+                # 计算组合效率 = 成功率 × 杀号数 / 100
+                efficiency = combo_success_rate * unique_kills / 100
+                
+                combo_results.append({
+                    "methods": list(combo),
+                    "method_names": [RED_KILL_METHOD_NAMES.get(m, f"方法{m}") for m in combo],
+                    "success_rate": round(combo_success_rate, 2),
+                    "unique_kills": unique_kills,
+                    "kill_numbers": sorted(combo_kills),
+                    "efficiency": round(efficiency, 2),
+                    "method_count": len(combo),
+                })
+        
+        # 按效率排序，取前20个最佳组合
+        combo_results.sort(key=lambda x: (-x["efficiency"], -x["success_rate"], -x["unique_kills"]))
+        
+        return combo_results[:20]
+    
     def _generate_recommendations(
         self,
         available_reds: List[int],
@@ -401,70 +480,68 @@ class SSQKillService:
         next_blue_kills: Dict[int, List[int]],
         red_stats: Dict[int, Dict],
         blue_stats: Dict[int, Dict],
+        method_combinations: List[Dict],
         num_sets: int
     ) -> Dict[str, List[Dict]]:
         """生成多种策略的推荐号码"""
         
         recommendations = {}
         
-        # 策略1: 剩余号码随机选择
+        # 策略1: 使用排名第一的方法组合
+        if method_combinations and len(method_combinations) > 0:
+            top1 = method_combinations[0]
+            top1_available = sorted([n for n in range(1, 34) if n not in top1["kill_numbers"]])
+            recommendations["top_combo_1"] = {
+                "name": f"最佳组合 #1",
+                "description": f"成功率{top1['success_rate']}%，杀{top1['unique_kills']}码: {', '.join(top1['method_names'])}",
+                "methods_used": top1["methods"],
+                "combo_info": top1,
+                "sets": self._random_select(top1_available, available_blues, num_sets)
+            }
+        
+        # 策略2: 使用排名第二的方法组合
+        if method_combinations and len(method_combinations) > 1:
+            top2 = method_combinations[1]
+            top2_available = sorted([n for n in range(1, 34) if n not in top2["kill_numbers"]])
+            recommendations["top_combo_2"] = {
+                "name": f"最佳组合 #2",
+                "description": f"成功率{top2['success_rate']}%，杀{top2['unique_kills']}码: {', '.join(top2['method_names'])}",
+                "methods_used": top2["methods"],
+                "combo_info": top2,
+                "sets": self._random_select(top2_available, available_blues, num_sets)
+            }
+        
+        # 策略3: 使用排名第三的方法组合
+        if method_combinations and len(method_combinations) > 2:
+            top3 = method_combinations[2]
+            top3_available = sorted([n for n in range(1, 34) if n not in top3["kill_numbers"]])
+            recommendations["top_combo_3"] = {
+                "name": f"最佳组合 #3",
+                "description": f"成功率{top3['success_rate']}%，杀{top3['unique_kills']}码: {', '.join(top3['method_names'])}",
+                "methods_used": top3["methods"],
+                "combo_info": top3,
+                "sets": self._random_select(top3_available, available_blues, num_sets)
+            }
+        
+        # 策略4: 剩余号码随机选择
         recommendations["random"] = {
             "name": "杀号后随机选择",
             "description": "从杀号后剩余可选号码中随机选择",
             "sets": self._random_select(available_reds, available_blues, num_sets)
         }
         
-        # 策略2: 高成功率方法筛选（只用成功率≥70%的方法）
-        high_rate_methods = [m for m, s in red_stats.items() if s["success_rate"] >= 70]
+        # 策略5: 高成功率方法筛选（只用成功率≥80%的方法）
+        high_rate_methods = [m for m, s in red_stats.items() if s["success_rate"] >= 80]
         high_rate_kills = set()
         for m in high_rate_methods:
             high_rate_kills.update(next_red_kills.get(m, []))
         high_rate_available = sorted([n for n in range(1, 34) if n not in high_rate_kills])
         
         recommendations["high_success"] = {
-            "name": "高成功率方法筛选",
-            "description": f"只使用成功率≥70%的{len(high_rate_methods)}种方法杀号",
+            "name": "高成功率方法",
+            "description": f"只使用成功率≥80%的{len(high_rate_methods)}种方法杀号",
             "methods_used": high_rate_methods,
             "sets": self._random_select(high_rate_available, available_blues, num_sets)
-        }
-        
-        # 策略3: 高效率方法筛选（效率指标最高的前8个方法）
-        sorted_by_efficiency = sorted(red_stats.items(), key=lambda x: -x[1]["efficiency"])
-        top_efficiency_methods = [m for m, _ in sorted_by_efficiency[:8]]
-        efficiency_kills = set()
-        for m in top_efficiency_methods:
-            efficiency_kills.update(next_red_kills.get(m, []))
-        efficiency_available = sorted([n for n in range(1, 34) if n not in efficiency_kills])
-        
-        recommendations["high_efficiency"] = {
-            "name": "高效率方法筛选",
-            "description": f"使用效率指标最高的8种方法杀号 (效率=成功率×平均杀号)",
-            "methods_used": top_efficiency_methods,
-            "sets": self._random_select(efficiency_available, available_blues, num_sets)
-        }
-        
-        # 策略4: 综合杀号（被≥3个方法杀掉的号码）
-        kill_count = {}
-        for m, kills in next_red_kills.items():
-            for k in kills:
-                kill_count[k] = kill_count.get(k, 0) + 1
-        multi_killed = set(k for k, c in kill_count.items() if c >= 3)
-        multi_available = sorted([n for n in range(1, 34) if n not in multi_killed])
-        
-        recommendations["multi_kill"] = {
-            "name": "多方法综合杀号",
-            "description": "只杀被≥3种方法同时杀掉的号码",
-            "sets": self._random_select(multi_available, available_blues, num_sets)
-        }
-        
-        # 策略5: 保守杀号（只杀被≥5个方法杀掉的号码）
-        conservative_killed = set(k for k, c in kill_count.items() if c >= 5)
-        conservative_available = sorted([n for n in range(1, 34) if n not in conservative_killed])
-        
-        recommendations["conservative"] = {
-            "name": "保守杀号策略",
-            "description": "只杀被≥5种方法同时杀掉的号码，保留更多选择",
-            "sets": self._random_select(conservative_available, available_blues, num_sets)
         }
         
         return recommendations

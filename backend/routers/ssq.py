@@ -10,7 +10,7 @@ from database import get_db
 from services.ssq_service import SSQService
 from schemas.ssq import SSQResultSchema, SSQFetchRequest, SSQListResponse
 
-router = APIRouter(prefix="/ssq", tags=["双色球"])
+router = APIRouter(tags=["双色球"])
 
 
 class SyncResponse(BaseModel):
@@ -27,7 +27,7 @@ class RefreshResponse(BaseModel):
     message: str
 
 
-@router.get("/", response_model=SSQListResponse)
+@router.get("", response_model=SSQListResponse)
 def get_ssq_list(
     limit: int = Query(100, ge=1, le=500, description="每页数量"),
     offset: int = Query(0, ge=0, description="偏移量"),

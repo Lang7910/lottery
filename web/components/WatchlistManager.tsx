@@ -1,16 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@clerk/nextjs";
 import {
     Bookmark, Trash2, Edit2, Check, X, RefreshCw,
-    ChevronDown, ChevronUp, Send, Minus, Plus, CheckSquare, Square, ArrowRight
+    ChevronDown, ChevronUp, Send, Minus, Plus, CheckSquare, Square, ArrowRight,
+    Clock, Archive
 } from "lucide-react";
 import { cn, API_BASE_URL } from "@/lib/utils";
 
 interface WatchlistItem {
     id: number;
     lottery_type: string;
+    target_period: number | null;
     numbers: {
         red?: number[];
         blue?: number | number[];
@@ -28,6 +30,14 @@ interface WatchlistManagerProps {
     onSelectForBet?: (item: WatchlistItem) => void;
 }
 
+interface PeriodGroup {
+    period: number | null;
+    label: string;
+    isExpired: boolean;
+    isCurrent: boolean;
+    items: WatchlistItem[];
+}
+
 export function WatchlistManager({ lotteryType = "ssq", onBatchBet, onSelectForBet }: WatchlistManagerProps) {
     const { isSignedIn, userId } = useAuth();
     const [items, setItems] = useState<WatchlistItem[]>([]);
@@ -43,11 +53,14 @@ export function WatchlistManager({ lotteryType = "ssq", onBatchBet, onSelectForB
     const [batchLoading, setBatchLoading] = useState(false);
     const [batchResult, setBatchResult] = useState<{ success: boolean; message: string } | null>(null);
 
+    // 分组折叠状态（过期的默认折叠）
+    const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["current", "next"]));
+
     // 获取最新期号
     useEffect(() => {
         const fetchLatestPeriod = async () => {
             try {
-                const res = await fetch(`${API_BASE_URL}/api/${lotteryType}/?limit=1`);
+                const res = await fetch(`${API_BASE_URL}/api/${lotteryType}?limit=1`);
                 if (res.ok) {
                     const data = await res.json();
                     if (data.items && data.items.length > 0) {
@@ -90,6 +103,80 @@ export function WatchlistManager({ lotteryType = "ssq", onBatchBet, onSelectForB
     useEffect(() => {
         loadWatchlist();
     }, [isSignedIn, userId, lotteryType]);
+
+    // 按期号分组
+    const periodGroups = useMemo<PeriodGroup[]>(() => {
+        const groups = new Map<string, WatchlistItem[]>();
+        const latestPeriod = targetPeriod - 1; // 最新已开奖期号
+
+        items.forEach(item => {
+            const key = item.target_period ? String(item.target_period) : "general";
+            if (!groups.has(key)) {
+                groups.set(key, []);
+            }
+            groups.get(key)!.push(item);
+        });
+
+        const result: PeriodGroup[] = [];
+
+        // 下一期（目标期号）
+        if (groups.has(String(targetPeriod))) {
+            result.push({
+                period: targetPeriod,
+                label: `${targetPeriod}期 (下一期)`,
+                isExpired: false,
+                isCurrent: true,
+                items: groups.get(String(targetPeriod))!
+            });
+        }
+
+        // 其他期号（按期号倒序）
+        const periodKeys = Array.from(groups.keys())
+            .filter(k => k !== "general" && k !== String(targetPeriod))
+            .sort((a, b) => parseInt(b) - parseInt(a));
+
+        periodKeys.forEach(key => {
+            const period = parseInt(key);
+            const isExpired = period <= latestPeriod;
+            result.push({
+                period,
+                label: `${period}期${isExpired ? " (已过期)" : ""}`,
+                isExpired,
+                isCurrent: false,
+                items: groups.get(key)!
+            });
+        });
+
+        // 通用收藏（无期号）
+        if (groups.has("general")) {
+            result.push({
+                period: null,
+                label: "通用收藏",
+                isExpired: false,
+                isCurrent: false,
+                items: groups.get("general")!
+            });
+        }
+
+        return result;
+    }, [items, targetPeriod]);
+
+    // 切换分组展开
+    const toggleGroup = (key: string) => {
+        const newExpanded = new Set(expandedGroups);
+        if (newExpanded.has(key)) {
+            newExpanded.delete(key);
+        } else {
+            newExpanded.add(key);
+        }
+        setExpandedGroups(newExpanded);
+    };
+
+    const getGroupKey = (group: PeriodGroup) => {
+        if (group.isCurrent) return "current";
+        if (group.period === null) return "general";
+        return String(group.period);
+    };
 
     const handleDelete = async (id: number) => {
         if (!userId) return;
@@ -201,6 +288,19 @@ export function WatchlistManager({ lotteryType = "ssq", onBatchBet, onSelectForB
         }
     };
 
+    // 全选当前分组
+    const selectGroup = (group: PeriodGroup) => {
+        const newSelected = new Set(selectedIds);
+        const allSelected = group.items.every(item => selectedIds.has(item.id));
+
+        if (allSelected) {
+            group.items.forEach(item => newSelected.delete(item.id));
+        } else {
+            group.items.forEach(item => newSelected.add(item.id));
+        }
+        setSelectedIds(newSelected);
+    };
+
     // 倍数操作
     const setMultiple = (id: number, value: number) => {
         const newMultiples = new Map(multiples);
@@ -280,6 +380,123 @@ export function WatchlistManager({ lotteryType = "ssq", onBatchBet, onSelectForB
         });
         return total;
     };
+
+    // 渲染单个收藏项
+    const renderItem = (item: WatchlistItem) => (
+        <div key={item.id} className={cn(
+            "p-3 transition-colors",
+            selectedIds.has(item.id) ? "bg-primary/5" : "hover:bg-muted/20"
+        )}>
+            {editingId === item.id ? (
+                /* 编辑模式 */
+                <div className="flex items-center gap-2">
+                    <input
+                        value={editNumbers}
+                        onChange={(e) => setEditNumbers(e.target.value)}
+                        className="flex-1 px-2 py-1 text-sm rounded bg-muted border border-border"
+                        placeholder={lotteryType === "ssq" ? "1,2,3,4,5,6+7" : "1,2,3,4,5+1,2"}
+                    />
+                    <button
+                        onClick={() => saveEdit(item.id)}
+                        className="p-1.5 rounded bg-green-500/20 text-green-500 hover:bg-green-500/30"
+                    >
+                        <Check className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={() => setEditingId(null)}
+                        className="p-1.5 rounded bg-red-500/20 text-red-500 hover:bg-red-500/30"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+            ) : (
+                /* 展示模式 */
+                <div className="flex items-center gap-3">
+                    {/* 选择框 */}
+                    <button
+                        onClick={() => toggleSelect(item.id)}
+                        className="shrink-0"
+                    >
+                        {selectedIds.has(item.id) ? (
+                            <CheckSquare className="w-5 h-5 text-primary" />
+                        ) : (
+                            <Square className="w-5 h-5 text-muted-foreground" />
+                        )}
+                    </button>
+
+                    {/* 号码 */}
+                    <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
+                        {(item.numbers.red || item.numbers.front || []).map((n, i) => (
+                            <span key={i} className="ball ball-red text-xs" style={{ width: 26, height: 26 }}>
+                                {n.toString().padStart(2, "0")}
+                            </span>
+                        ))}
+                        <span className="text-muted-foreground text-sm">+</span>
+                        {lotteryType === "ssq" ? (
+                            <span className="ball ball-blue text-xs" style={{ width: 26, height: 26 }}>
+                                {(item.numbers.blue as number)?.toString().padStart(2, "0")}
+                            </span>
+                        ) : (
+                            (item.numbers.back as number[] || []).map((n, i) => (
+                                <span key={i} className="ball ball-blue text-xs" style={{ width: 26, height: 26 }}>
+                                    {n.toString().padStart(2, "0")}
+                                </span>
+                            ))
+                        )}
+                        <span className="text-xs text-muted-foreground ml-1">
+                            {formatSource(item.source)}
+                        </span>
+                    </div>
+
+                    {/* 倍数控制 */}
+                    <div className="flex items-center gap-1 shrink-0">
+                        <button
+                            onClick={() => setMultiple(item.id, (multiples.get(item.id) || 1) - 1)}
+                            className="p-1 rounded bg-muted hover:bg-border"
+                        >
+                            <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="w-6 text-center text-sm font-medium">
+                            {multiples.get(item.id) || 1}
+                        </span>
+                        <button
+                            onClick={() => setMultiple(item.id, (multiples.get(item.id) || 1) + 1)}
+                            className="p-1 rounded bg-muted hover:bg-border"
+                        >
+                            <Plus className="w-3 h-3" />
+                        </button>
+                    </div>
+
+                    {/* 操作按钮 */}
+                    <div className="flex items-center gap-1 shrink-0">
+                        {onSelectForBet && (
+                            <button
+                                onClick={() => onSelectForBet(item)}
+                                className="p-1.5 rounded hover:bg-primary/20 text-primary"
+                                title="添加到投注面板"
+                            >
+                                <ArrowRight className="w-4 h-4" />
+                            </button>
+                        )}
+                        <button
+                            onClick={() => startEdit(item)}
+                            className="p-1.5 rounded hover:bg-muted"
+                            title="编辑"
+                        >
+                            <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => handleDelete(item.id)}
+                            className="p-1.5 rounded hover:bg-red-500/20 text-red-500"
+                            title="删除"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 
     if (!isSignedIn) {
         return (
@@ -382,136 +599,69 @@ export function WatchlistManager({ lotteryType = "ssq", onBatchBet, onSelectForB
                 </div>
             )}
 
-            {/* 列表 */}
+            {/* 分组列表 */}
             {!collapsed && (
                 <div className="border-t border-border">
-                    {items.length === 0 ? (
+                    {periodGroups.length === 0 ? (
                         <div className="p-6 text-center text-muted-foreground">
                             <p className="text-sm">暂无收藏</p>
                             <p className="text-xs mt-1">在推荐号码旁点击 + 添加</p>
                         </div>
                     ) : (
-                        <div className="divide-y divide-border">
-                            {items.map((item) => (
-                                <div key={item.id} className={cn(
-                                    "p-3 transition-colors",
-                                    selectedIds.has(item.id) ? "bg-primary/5" : "hover:bg-muted/20"
-                                )}>
-                                    {editingId === item.id ? (
-                                        /* 编辑模式 */
+                        periodGroups.map(group => {
+                            const key = getGroupKey(group);
+                            const isExpanded = expandedGroups.has(key) || group.isCurrent;
+                            const groupSelectedCount = group.items.filter(item => selectedIds.has(item.id)).length;
+
+                            return (
+                                <div key={key} className="border-b border-border last:border-b-0">
+                                    {/* 分组头部 */}
+                                    <div
+                                        className={cn(
+                                            "flex items-center justify-between px-4 py-2 cursor-pointer",
+                                            group.isCurrent ? "bg-primary/10" : group.isExpired ? "bg-muted/50" : "bg-muted/30",
+                                            "hover:bg-muted/40"
+                                        )}
+                                        onClick={() => toggleGroup(key)}
+                                    >
                                         <div className="flex items-center gap-2">
-                                            <input
-                                                value={editNumbers}
-                                                onChange={(e) => setEditNumbers(e.target.value)}
-                                                className="flex-1 px-2 py-1 text-sm rounded bg-muted border border-border"
-                                                placeholder={lotteryType === "ssq" ? "1,2,3,4,5,6+7" : "1,2,3,4,5+1,2"}
-                                            />
-                                            <button
-                                                onClick={() => saveEdit(item.id)}
-                                                className="p-1.5 rounded bg-green-500/20 text-green-500 hover:bg-green-500/30"
-                                            >
-                                                <Check className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => setEditingId(null)}
-                                                className="p-1.5 rounded bg-red-500/20 text-red-500 hover:bg-red-500/30"
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </button>
+                                            {isExpanded ? (
+                                                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                                            ) : (
+                                                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                            )}
+                                            {group.isCurrent && <Clock className="w-4 h-4 text-primary" />}
+                                            {group.isExpired && <Archive className="w-4 h-4 text-muted-foreground" />}
+                                            <span className={cn(
+                                                "text-sm font-medium",
+                                                group.isCurrent ? "text-primary" : group.isExpired ? "text-muted-foreground" : ""
+                                            )}>
+                                                {group.label}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                                ({group.items.length}条)
+                                            </span>
                                         </div>
-                                    ) : (
-                                        /* 展示模式 */
-                                        <div className="flex items-center gap-3">
-                                            {/* 选择框 */}
-                                            <button
-                                                onClick={() => toggleSelect(item.id)}
-                                                className="shrink-0"
-                                            >
-                                                {selectedIds.has(item.id) ? (
-                                                    <CheckSquare className="w-5 h-5 text-primary" />
-                                                ) : (
-                                                    <Square className="w-5 h-5 text-muted-foreground" />
-                                                )}
-                                            </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); selectGroup(group); }}
+                                            className="text-xs text-muted-foreground hover:text-foreground"
+                                        >
+                                            {groupSelectedCount === group.items.length ? "取消全选" : "全选"}
+                                        </button>
+                                    </div>
 
-                                            {/* 号码 */}
-                                            <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
-                                                {(item.numbers.red || item.numbers.front || []).map((n, i) => (
-                                                    <span key={i} className="ball ball-red text-xs" style={{ width: 26, height: 26 }}>
-                                                        {n.toString().padStart(2, "0")}
-                                                    </span>
-                                                ))}
-                                                <span className="text-muted-foreground text-sm">+</span>
-                                                {lotteryType === "ssq" ? (
-                                                    <span className="ball ball-blue text-xs" style={{ width: 26, height: 26 }}>
-                                                        {(item.numbers.blue as number)?.toString().padStart(2, "0")}
-                                                    </span>
-                                                ) : (
-                                                    (item.numbers.back as number[] || []).map((n, i) => (
-                                                        <span key={i} className="ball ball-blue text-xs" style={{ width: 26, height: 26 }}>
-                                                            {n.toString().padStart(2, "0")}
-                                                        </span>
-                                                    ))
-                                                )}
-                                                <span className="text-xs text-muted-foreground ml-1">
-                                                    {formatSource(item.source)}
-                                                </span>
-                                            </div>
-
-                                            {/* 倍数控制 */}
-                                            <div className="flex items-center gap-1 shrink-0">
-                                                <button
-                                                    onClick={() => setMultiple(item.id, (multiples.get(item.id) || 1) - 1)}
-                                                    className="p-1 rounded bg-muted hover:bg-border"
-                                                >
-                                                    <Minus className="w-3 h-3" />
-                                                </button>
-                                                <span className="w-6 text-center text-sm font-medium">
-                                                    {multiples.get(item.id) || 1}
-                                                </span>
-                                                <button
-                                                    onClick={() => setMultiple(item.id, (multiples.get(item.id) || 1) + 1)}
-                                                    className="p-1 rounded bg-muted hover:bg-border"
-                                                >
-                                                    <Plus className="w-3 h-3" />
-                                                </button>
-                                            </div>
-
-                                            {/* 操作按钮 */}
-                                            <div className="flex items-center gap-1 shrink-0">
-                                                {onSelectForBet && (
-                                                    <button
-                                                        onClick={() => onSelectForBet(item)}
-                                                        className="p-1.5 rounded hover:bg-primary/20 text-primary"
-                                                        title="添加到投注面板"
-                                                    >
-                                                        <ArrowRight className="w-4 h-4" />
-                                                    </button>
-                                                )}
-                                                <button
-                                                    onClick={() => startEdit(item)}
-                                                    className="p-1.5 rounded hover:bg-muted"
-                                                    title="编辑"
-                                                >
-                                                    <Edit2 className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(item.id)}
-                                                    className="p-1.5 rounded hover:bg-red-500/20 text-red-500"
-                                                    title="删除"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
+                                    {/* 分组内容 */}
+                                    {isExpanded && (
+                                        <div className="divide-y divide-border">
+                                            {group.items.map(renderItem)}
                                         </div>
                                     )}
                                 </div>
-                            ))}
-                        </div>
+                            );
+                        })
                     )}
                 </div>
             )}
         </div>
     );
 }
-

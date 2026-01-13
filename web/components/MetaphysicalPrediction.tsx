@@ -43,6 +43,7 @@ export function MetaphysicalPrediction({ lotteryType = "ssq" }: MetaphysicalPred
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<any>(null);
+    const [nextPeriod, setNextPeriod] = useState<number>(0);
 
     // 三才输入
     const [showInputPanel, setShowInputPanel] = useState(true);
@@ -109,6 +110,15 @@ export function MetaphysicalPrediction({ lotteryType = "ssq" }: MetaphysicalPred
 
     useEffect(() => {
         predict();
+        // 获取下一期期号
+        fetch(`${API_BASE_URL}/api/${lotteryType}?limit=1`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.items?.[0]?.period) {
+                    setNextPeriod(parseInt(data.items[0].period) + 1);
+                }
+            })
+            .catch(console.error);
     }, [lotteryType]);
 
     const renderWuxingBar = (scores: Record<string, number>) => {
@@ -391,6 +401,7 @@ export function MetaphysicalPrediction({ lotteryType = "ssq" }: MetaphysicalPred
                                             : { front: set.front || set.red, back: set.back }
                                         }
                                         source="metaphysical"
+                                        targetPeriod={nextPeriod}
                                     />
                                 </div>
                             ))}

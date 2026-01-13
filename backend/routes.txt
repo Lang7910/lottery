@@ -1,0 +1,45 @@
+Dumping all routes:
+Path: /openapi.json | Methods: {'GET', 'HEAD'}
+Path: /docs | Methods: {'GET', 'HEAD'}
+Path: /docs/oauth2-redirect | Methods: {'GET', 'HEAD'}
+Path: /redoc | Methods: {'GET', 'HEAD'}
+Path: /api/ssq | Methods: {'GET'}
+Path: /api/ssq/latest | Methods: {'GET'}
+Path: /api/ssq/sync | Methods: {'POST'}
+Path: /api/ssq/refresh | Methods: {'POST'}
+Path: /api/ssq/fetch | Methods: {'POST'}
+Path: /api/ssq/{period} | Methods: {'GET'}
+Path: /api/dlt | Methods: {'GET'}
+Path: /api/dlt/latest | Methods: {'GET'}
+Path: /api/dlt/sync | Methods: {'POST'}
+Path: /api/dlt/refresh | Methods: {'POST'}
+Path: /api/dlt/fetch | Methods: {'POST'}
+Path: /api/dlt/{period} | Methods: {'GET'}
+Path: /api/analysis/ssq/frequency | Methods: {'GET'}
+Path: /api/analysis/ssq/trend | Methods: {'GET'}
+Path: /api/analysis/ssq/weekday-options | Methods: {'GET'}
+Path: /api/analysis/dlt/frequency | Methods: {'GET'}
+Path: /api/analysis/dlt/trend | Methods: {'GET'}
+Path: /api/analysis/ssq/method-params | Methods: {'GET'}
+Path: /api/analysis/ssq/predict | Methods: {'GET'}
+Path: /api/analysis/ssq/predict-all | Methods: {'GET'}
+Path: /api/analysis/ssq/recommend | Methods: {'GET'}
+Path: /api/analysis/dlt/method-params | Methods: {'GET'}
+Path: /api/analysis/dlt/predict | Methods: {'GET'}
+Path: /api/analysis/dlt/predict-all | Methods: {'GET'}
+Path: /api/analysis/dlt/recommend | Methods: {'GET'}
+Path: /api/analysis/ssq/kill | Methods: {'GET'}
+Path: /api/analysis/{lottery}/metaphysical | Methods: {'POST'}
+Path: /api/analysis/{lottery}/metaphysical | Methods: {'GET'}
+Path: /api/betting/user/sync | Methods: {'POST'}
+Path: /api/betting/user/me | Methods: {'GET'}
+Path: /api/betting/watchlist | Methods: {'GET'}
+Path: /api/betting/watchlist | Methods: {'POST'}
+Path: /api/betting/watchlist/{item_id} | Methods: {'PUT'}
+Path: /api/betting/watchlist/{item_id} | Methods: {'DELETE'}
+Path: /api/betting/calculate | Methods: {'POST'}
+Path: /api/betting/bets | Methods: {'POST'}
+Path: /api/betting/bets | Methods: {'GET'}
+Path: /api/betting/stats | Methods: {'GET'}
+Path: / | Methods: {'GET'}
+Path: /health | Methods: {'GET'}

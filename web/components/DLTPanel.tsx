@@ -60,7 +60,7 @@ export function DLTPanel() {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${API_BASE_URL}/api/dlt/?${buildQueryParams()}`);
+            const res = await fetch(`${API_BASE_URL}/api/dlt?${buildQueryParams()}`);
             if (!res.ok) throw new Error("获取数据失败");
             const json = await res.json();
             setData(json);

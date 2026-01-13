@@ -91,6 +91,15 @@ npm install
 npm run dev
 
 # 4. 访问 http://localhost:3000
+
+### 方式三：桌面一键启动 (Windows) ⭐
+
+项目根目录已包含 `start_lottery.bat` 脚本。
+
+1. 找到 `start_lottery.bat` 文件
+2. 右键 -> 发送到了 -> 桌面快捷方式
+3. 双击桌面快捷方式即可同时启动前后端并打开浏览器
+
 ```
 
 ---

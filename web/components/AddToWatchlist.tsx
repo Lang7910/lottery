@@ -14,6 +14,7 @@ interface AddToWatchlistProps {
         back?: number[];
     };
     source?: string;
+    targetPeriod?: number;  // 目标期号
     className?: string;
 }
 
@@ -37,6 +38,7 @@ export function AddToWatchlist({
     lotteryType,
     numbers,
     source = "recommendation",
+    targetPeriod,
     className
 }: AddToWatchlistProps) {
     const { isSignedIn, userId } = useAuth();
@@ -75,6 +77,7 @@ export function AddToWatchlist({
                     lottery_type: lotteryType,
                     numbers,
                     source,
+                    target_period: targetPeriod,
                 }),
             });
 

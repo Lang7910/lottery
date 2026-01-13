@@ -19,9 +19,14 @@ services:
       args:
         # 生产环境使用空字符串，让前端使用相对路径
         - NEXT_PUBLIC_API_URL=
+        # Clerk 认证 (从 .env 文件读取或直接设置)
+        - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
     container_name: lottery-frontend
     ports:
       - "3721:3000"
+    environment:
+      - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
     depends_on:
       - backend
     restart: unless-stopped

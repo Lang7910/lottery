@@ -29,6 +29,7 @@ class Watchlist(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     lottery_type = Column(String(10), nullable=False)  # ssq / dlt
+    target_period = Column(Integer, nullable=True, index=True)  # 目标期号（可选）
     numbers = Column(JSON, nullable=False)  # {"red": [1,2,3,4,5,6], "blue": 7} 或 {"front": [...], "back": [...]}
     source = Column(String(50), nullable=True)  # 来源: timeseries, metaphysical, manual 等
     note = Column(String(200), nullable=True)

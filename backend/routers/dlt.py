@@ -10,7 +10,7 @@ from database import get_db
 from services.dlt_service import DLTService
 from schemas.dlt import DLTResultSchema, DLTFetchRequest, DLTListResponse
 
-router = APIRouter(prefix="/dlt", tags=["大乐透"])
+router = APIRouter(tags=["大乐透"])
 
 
 class SyncResponse(BaseModel):
@@ -27,7 +27,7 @@ class RefreshResponse(BaseModel):
     message: str
 
 
-@router.get("/", response_model=DLTListResponse)
+@router.get("", response_model=DLTListResponse)
 def get_dlt_list(
     limit: int = Query(100, ge=1, le=500, description="每页数量"),
     offset: int = Query(0, ge=0, description="偏移量"),

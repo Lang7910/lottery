@@ -50,12 +50,14 @@ class BettingService:
         lottery_type: str, 
         numbers: dict, 
         source: str = "manual",
-        note: str = None
+        note: str = None,
+        target_period: int = None
     ) -> Watchlist:
         """添加到收藏"""
         item = Watchlist(
             user_id=user_id,
             lottery_type=lottery_type,
+            target_period=target_period,
             numbers=numbers,
             source=source,
             note=note

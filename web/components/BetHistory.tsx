@@ -65,6 +65,74 @@ export function BetHistory({ lotteryType = "ssq" }: BetHistoryProps) {
         }
     };
 
+    // 检查待开奖投注
+    const [checking, setChecking] = useState(false);
+    const checkPendingBets = async () => {
+        if (!userId) return;
+
+        // 获取待开奖的期号列表
+        const pendingBets = bets.filter(b => b.status === "pending");
+        if (pendingBets.length === 0) {
+            alert("没有待开奖的投注");
+            return;
+        }
+
+        setChecking(true);
+        try {
+            // 获取最新开奖数据
+            const lotteryRes = await fetch(`${API_BASE_URL}/api/${lotteryType}/latest`);
+            if (!lotteryRes.ok) {
+                alert("获取开奖数据失败");
+                return;
+            }
+            const latestDraw = await lotteryRes.json();
+            if (!latestDraw) {
+                alert("暂无开奖数据");
+                return;
+            }
+
+            // 构建开奖结果格式
+            const drawResult = lotteryType === "ssq"
+                ? { red: latestDraw.red, blue: latestDraw.blue }
+                : { front: latestDraw.front, back: latestDraw.back };
+
+            // 对每个待开奖期号调用检查API
+            const periodsToCheck = [...new Set(pendingBets.map(b => b.target_period))];
+            let checkedCount = 0;
+
+            for (const period of periodsToCheck) {
+                // 只检查已开奖的期号
+                if (period <= latestDraw.period) {
+                    const checkRes = await fetch(`${API_BASE_URL}/api/betting/check`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            lottery_type: lotteryType,
+                            period: period,
+                            draw_result: drawResult
+                        })
+                    });
+                    if (checkRes.ok) {
+                        const result = await checkRes.json();
+                        checkedCount += result.checked_count;
+                    }
+                }
+            }
+
+            if (checkedCount > 0) {
+                alert(`已检查 ${checkedCount} 条投注记录`);
+                await loadBets(); // 刷新列表
+            } else {
+                alert("没有需要检查的投注（可能还未开奖）");
+            }
+        } catch (err) {
+            console.error("检查失败:", err);
+            alert("检查失败，请稍后重试");
+        } finally {
+            setChecking(false);
+        }
+    };
+
     useEffect(() => {
         loadBets();
     }, [isSignedIn, userId, lotteryType, filter]);
@@ -154,6 +222,14 @@ export function BetHistory({ lotteryType = "ssq" }: BetHistoryProps) {
                         <h3 className="font-semibold">投注记录</h3>
                     </div>
                     <div className="flex items-center gap-2">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); checkPendingBets(); }}
+                            disabled={checking}
+                            className="px-2 py-1 text-xs rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                            title="检查待开奖投注"
+                        >
+                            {checking ? "检查中..." : "检查开奖"}
+                        </button>
                         <button
                             onClick={(e) => { e.stopPropagation(); loadBets(); }}
                             className="p-1.5 rounded hover:bg-muted"

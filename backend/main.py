@@ -51,8 +51,8 @@ app.add_middleware(
 )
 
 # 注册路由
-app.include_router(ssq_router, prefix="/api")
-app.include_router(dlt_router, prefix="/api")
+app.include_router(ssq_router, prefix="/api/ssq")
+app.include_router(dlt_router, prefix="/api/dlt")
 app.include_router(analysis_router, prefix="/api")
 
 # 投注路由
