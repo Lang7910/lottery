@@ -131,7 +131,7 @@ function HomeContent() {
           </div>
           <div className="flex items-center gap-3">
             <a
-              href="/betting"
+              href={`/betting?type=${lotteryType}`}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-muted hover:bg-border transition-colors"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

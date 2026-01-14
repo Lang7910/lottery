@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useSearchParams, useRouter } from "next/navigation";
 import { WatchlistManager } from "@/components/WatchlistManager";
 import { BettingPanel } from "@/components/BettingPanel";
 import { HK6BettingPanel } from "@/components/HK6BettingPanel";
 import { BetHistory } from "@/components/BetHistory";
-import { Dice5, Bookmark, Send, History, ArrowLeft } from "lucide-react";
+import { Dice5, Bookmark, Send, History, ArrowLeft, Loader2 } from "lucide-react";
 import { cn, API_BASE_URL } from "@/lib/utils";
 import Link from "next/link";
 
@@ -14,13 +15,42 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 type Tab = "watchlist" | "betting" | "history";
+type LotteryType = "ssq" | "dlt" | "hk6";
 
-export default function BettingPage() {
+function BettingContent() {
     const { isSignedIn } = useAuth();
-    const [activeTab, setActiveTab] = useState<Tab>("watchlist");
-    const [lotteryType, setLotteryType] = useState<"ssq" | "dlt" | "hk6">("ssq");
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
+    // 从 URL 读取初始状态
+    const [activeTab, setActiveTab] = useState<Tab>(
+        (searchParams.get("tab") as Tab) || "watchlist"
+    );
+    const [lotteryType, setLotteryType] = useState<LotteryType>(
+        (searchParams.get("type") as LotteryType) || "ssq"
+    );
     const [selectedNumbers, setSelectedNumbers] = useState<any>(null);
     const [nextPeriod, setNextPeriod] = useState<number>(0);
+    const [isInitialized, setIsInitialized] = useState(false);
+
+    // 同步状态到 URL
+    useEffect(() => {
+        if (!isInitialized) {
+            setIsInitialized(true);
+            return;
+        }
+
+        const params = new URLSearchParams();
+        params.set("type", lotteryType);
+        params.set("tab", activeTab);
+
+        const newUrl = `/betting?${params.toString()}`;
+        const currentUrl = window.location.pathname + window.location.search;
+
+        if (newUrl !== currentUrl) {
+            router.replace(newUrl, { scroll: false });
+        }
+    }, [lotteryType, activeTab, router, isInitialized]);
 
     // 获取最新期号，计算下一期
     useEffect(() => {
@@ -85,7 +115,7 @@ export default function BettingPage() {
                 <div className="h-full px-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Link
-                            href="/"
+                            href={`/?type=${lotteryType}`}
                             className="p-2 rounded-lg hover:bg-muted transition-colors"
                             title="返回首页"
                         >
@@ -172,3 +202,15 @@ export default function BettingPage() {
     );
 }
 
+// Suspense wrapper for useSearchParams
+export default function BettingPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-background flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+        }>
+            <BettingContent />
+        </Suspense>
+    );
+}
