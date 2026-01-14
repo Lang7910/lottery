@@ -230,7 +230,7 @@ export function HK6Panel() {
                 const latest = data.items[0];
                 const specialWave = getWaveColor(latest.special);
                 const specialZodiac = getZodiacByDate(latest.special, latest.date);
-                const specialWaveClass = specialWave === "red" ? "bg-red-500" : specialWave === "blue" ? "bg-blue-500" : "bg-green-500";
+                const specialBallClass = specialWave === "red" ? "ball-red" : specialWave === "blue" ? "ball-blue" : "ball-green";
 
                 return (
                     <div className="glass-card p-4">
@@ -243,10 +243,10 @@ export function HK6Panel() {
                         <div className="flex items-center gap-3 flex-wrap">
                             {latest.numbers.map((num, i) => {
                                 const wave = getWaveColor(num);
-                                const bgClass = wave === "red" ? "bg-red-500" : wave === "blue" ? "bg-blue-500" : "bg-green-500";
+                                const ballClass = wave === "red" ? "ball-red" : wave === "blue" ? "ball-blue" : "ball-green";
                                 return (
                                     <div key={i} className="flex flex-col items-center">
-                                        <div className={cn("ball", bgClass.replace("bg-", "ball-"))}>
+                                        <div className={cn("ball", ballClass)}>
                                             {num.toString().padStart(2, "0")}
                                         </div>
                                         {showDetails && (
@@ -259,7 +259,7 @@ export function HK6Panel() {
                             })}
                             <span className="text-xl text-muted-foreground mx-1">+</span>
                             <div className="flex flex-col items-center">
-                                <div className={cn("ball ring-2 ring-amber-400", specialWaveClass.replace("bg-", "ball-"))}>
+                                <div className={cn("ball ring-2 ring-amber-400", specialBallClass)}>
                                     {latest.special.toString().padStart(2, "0")}
                                 </div>
                                 {showDetails && (
@@ -270,7 +270,7 @@ export function HK6Panel() {
                             </div>
                             {showDetails && (
                                 <div className="ml-4 flex items-center gap-2">
-                                    <span className={cn("px-2 py-1 rounded text-white text-sm font-medium", specialWaveClass)}>
+                                    <span className={cn("px-2 py-1 rounded text-white text-sm font-medium", specialBallClass)}>
                                         {specialWave === "red" ? "红波" : specialWave === "blue" ? "蓝波" : "绿波"}
                                     </span>
                                     <span className="text-lg font-medium">{specialZodiac}</span>
