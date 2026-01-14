@@ -162,16 +162,16 @@ function HomeContent() {
           onLotteryTypeChange={setLotteryType}
         />
 
-        {/* 内容区 */}
-        <main className="flex-1 p-6 overflow-auto">
+        {/* 内容区 - 移动端全宽，桌面端减去侧边栏 */}
+        <main className="flex-1 p-4 md:p-6 overflow-auto w-full md:w-auto">
           <div className="max-w-5xl mx-auto">
             {renderContent()}
           </div>
         </main>
       </div>
 
-      {/* 页脚 */}
-      <footer className="py-4 text-center text-sm text-muted-foreground border-t border-border ml-56">
+      {/* 页脚 - 移动端无左边距 */}
+      <footer className="py-4 text-center text-sm text-muted-foreground border-t border-border md:ml-56">
         <p>彩票数据仅供参考，请理性购彩</p>
       </footer>
     </div>
