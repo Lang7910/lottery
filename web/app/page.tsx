@@ -180,8 +180,8 @@ function HomeContent() {
         />
 
         {/* 内容区 - 移动端全宽，桌面端减去侧边栏 */}
-        <main className="flex-1 p-4 md:p-6 overflow-auto w-full md:w-auto">
-          <div className="max-w-5xl mx-auto">
+        <main className="flex-1 p-3 md:p-4 overflow-auto w-full md:w-auto">
+          <div className="max-w-7xl mx-auto">
             {renderContent()}
           </div>
         </main>
