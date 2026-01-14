@@ -63,9 +63,10 @@ export function Sidebar({
 
             {/* 侧边栏 */}
             <aside className={cn(
-                "shrink-0 border-r border-border bg-card min-h-[calc(100vh-64px)] transition-transform duration-300 z-40",
-                // 移动端: 固定定位, 桌面端: 静态定位
-                "fixed md:relative left-0 top-16 w-64 md:w-56",
+                "shrink-0 border-r border-border bg-card transition-transform duration-300 z-40",
+                // 移动端: 固定定位全屏高度, 桌面端: 相对定位跟随内容流
+                "fixed md:sticky left-0 top-16 w-64 md:w-56",
+                "h-[calc(100vh-64px)]",
                 isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
             )}>
                 <div className="p-4 space-y-6 h-full overflow-y-auto">

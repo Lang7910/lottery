@@ -85,6 +85,34 @@ export function SSQBasicAnalysis() {
         return max || 1;
     };
 
+    // 获取频率渐变色 (从冷色到暖色的连续渐变，优化文字对比度)
+    const getFrequencyColor = (value: number, max: number): React.CSSProperties => {
+        if (value === 0 || max === 0) return {};
+        const ratio = Math.min(value / max, 1);
+        // HSL 色相从 200(蓝) 渐变到 0(红)
+        const hue = Math.round(200 - ratio * 200);
+        const saturation = 60 + ratio * 30;
+        // 使用更深的背景色保证白色文字可读
+        const lightness = 75 - ratio * 40;
+        return {
+            backgroundColor: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
+            color: '#000',
+            fontWeight: ratio > 0.5 ? 600 : 400
+        };
+    };
+
+    // 获取蓝球频率渐变色
+    const getBlueFrequencyColor = (value: number, max: number): React.CSSProperties => {
+        if (value === 0 || max === 0) return {};
+        const ratio = Math.min(value / max, 1);
+        const lightness = 80 - ratio * 40;
+        return {
+            backgroundColor: `hsl(210, 70%, ${lightness}%)`,
+            color: ratio > 0.6 ? '#fff' : '#000',
+            fontWeight: ratio > 0.5 ? 600 : 400
+        };
+    };
+
     return (
         <div className="space-y-6 animate-fade-in">
             {/* 标题 */}
@@ -208,27 +236,32 @@ export function SSQBasicAnalysis() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border">
-                                        {Array.from({ length: 33 }, (_, i) => i + 1).map((num) => {
-                                            const blueItem = num <= 16 ? data.blue.find((b) => b.number === num) : null;
-                                            return (
-                                                <tr key={num} className="hover:bg-muted/30">
-                                                    <td className="px-2 py-1 border-r border-border">
-                                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-500 text-white text-xs">{num.toString().padStart(2, "0")}</span>
-                                                    </td>
-                                                    {data.red_positions.map((pos) => {
-                                                        const stat = pos.stats.find((s) => s.number === num);
-                                                        return (
-                                                            <React.Fragment key={pos.position}>
-                                                                <td className="px-1 py-1 text-right text-muted-foreground">{stat?.count || 0}</td>
-                                                                <td className="px-1 py-1 text-right text-muted-foreground border-r border-border">{stat ? (stat.frequency * 100).toFixed(2) : "0.00"}%</td>
-                                                            </React.Fragment>
-                                                        );
-                                                    })}
-                                                    <td className="px-1 py-1 text-right text-muted-foreground">{blueItem?.count ?? "-"}</td>
-                                                    <td className="px-1 py-1 text-right text-muted-foreground">{blueItem ? (blueItem.frequency * 100).toFixed(2) + "%" : "-"}</td>
-                                                </tr>
-                                            );
-                                        })}
+                                        {(() => {
+                                            const maxCount = getMaxCount();
+                                            const blueMaxCount = Math.max(...data.blue.map(b => b.count));
+                                            return Array.from({ length: 33 }, (_, i) => i + 1).map((num) => {
+                                                const blueItem = num <= 16 ? data.blue.find((b) => b.number === num) : null;
+                                                return (
+                                                    <tr key={num} className="hover:bg-muted/30">
+                                                        <td className="px-2 py-1 border-r border-border">
+                                                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-500 text-white text-xs">{num.toString().padStart(2, "0")}</span>
+                                                        </td>
+                                                        {data.red_positions.map((pos) => {
+                                                            const stat = pos.stats.find((s) => s.number === num);
+                                                            const count = stat?.count || 0;
+                                                            return (
+                                                                <React.Fragment key={pos.position}>
+                                                                    <td className="px-1 py-1 text-right text-sm" style={getFrequencyColor(count, maxCount)}>{count}</td>
+                                                                    <td className="px-1 py-1 text-right text-sm border-r border-border" style={getFrequencyColor(count, maxCount)}>{stat ? (stat.frequency * 100).toFixed(2) : "0.00"}%</td>
+                                                                </React.Fragment>
+                                                            );
+                                                        })}
+                                                        <td className="px-1 py-1 text-right text-sm" style={blueItem ? getBlueFrequencyColor(blueItem.count, blueMaxCount) : {}}>{blueItem?.count ?? "-"}</td>
+                                                        <td className="px-1 py-1 text-right text-sm" style={blueItem ? getBlueFrequencyColor(blueItem.count, blueMaxCount) : {}}>{blueItem ? (blueItem.frequency * 100).toFixed(2) + "%" : "-"}</td>
+                                                    </tr>
+                                                );
+                                            });
+                                        })()}
                                     </tbody>
                                 </table>
                             </div>

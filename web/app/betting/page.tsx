@@ -110,6 +110,12 @@ function BettingContent() {
 
     return (
         <div className="min-h-screen bg-background">
+            {/* 模拟投注声明 */}
+            <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2">
+                <p className="text-center text-xs text-amber-600 dark:text-amber-400">
+                    ⚠️ 本系统仅供模拟娱乐，不涉及真实金钱交易。请理性对待，切勿沉迷。
+                </p>
+            </div>
             {/* 头部 */}
             <header className="sticky top-0 z-40 h-14 border-b border-border bg-card/80 backdrop-blur-md">
                 <div className="h-full px-4 flex items-center justify-between">
@@ -178,8 +184,11 @@ function BettingContent() {
                 {activeTab === "betting" && (
                     lotteryType === "hk6" ? (
                         <HK6BettingPanel
+                            initialNumbers={selectedNumbers}
+                            targetPeriod={nextPeriod}
                             onSuccess={() => {
                                 setSelectedNumbers(null);
+                                setActiveTab("history");
                             }}
                         />
                     ) : (

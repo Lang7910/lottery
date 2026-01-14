@@ -92,9 +92,14 @@ export function BetHistory({ lotteryType = "ssq" }: BetHistoryProps) {
             }
 
             // 构建开奖结果格式
-            const drawResult = lotteryType === "ssq"
-                ? { red: latestDraw.red, blue: latestDraw.blue }
-                : { front: latestDraw.front, back: latestDraw.back };
+            let drawResult: any;
+            if (lotteryType === "ssq") {
+                drawResult = { red: latestDraw.red, blue: latestDraw.blue };
+            } else if (lotteryType === "hk6") {
+                drawResult = { numbers: latestDraw.numbers, special: latestDraw.special };
+            } else {
+                drawResult = { front: latestDraw.front, back: latestDraw.back };
+            }
 
             // 对每个待开奖期号调用检查API
             const periodsToCheck = [...new Set(pendingBets.map(b => b.target_period))];
@@ -150,6 +155,11 @@ export function BetHistory({ lotteryType = "ssq" }: BetHistoryProps) {
             const red = nums.red?.join(",") || "";
             const blue = Array.isArray(nums.blue) ? nums.blue.join(",") : nums.blue;
             return `${red}+${blue}`;
+        } else if (bet.lottery_type === "hk6") {
+            // HK6: numbers (6个正码) + special (特码)
+            const numbers = nums.numbers?.join(",") || "";
+            const special = nums.special || "";
+            return `${numbers}+${special}`;
         } else {
             if (bet.bet_type === "dantuo") {
                 return `胆[${nums.dan_front?.join(",")}] 拖[${nums.tuo_front?.join(",")}]+${nums.tuo_back?.join(",")}`;

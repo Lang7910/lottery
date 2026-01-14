@@ -93,6 +93,32 @@ export function DLTBasicAnalysis() {
         return max || 1;
     };
 
+    // 获取频率渐变色 (从冷色到暖色的连续渐变，优化文字对比度)
+    const getFrequencyColor = (value: number, max: number): React.CSSProperties => {
+        if (value === 0 || max === 0) return {};
+        const ratio = Math.min(value / max, 1);
+        const hue = Math.round(200 - ratio * 200);
+        const saturation = 60 + ratio * 30;
+        const lightness = 75 - ratio * 40;
+        return {
+            backgroundColor: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
+            color: '#000',
+            fontWeight: ratio > 0.5 ? 600 : 400
+        };
+    };
+
+    // 后区蓝色渐变
+    const getBackFrequencyColor = (value: number, max: number): React.CSSProperties => {
+        if (value === 0 || max === 0) return {};
+        const ratio = Math.min(value / max, 1);
+        const lightness = 80 - ratio * 40;
+        return {
+            backgroundColor: `hsl(210, 70%, ${lightness}%)`,
+            color: ratio > 0.6 ? '#fff' : '#000',
+            fontWeight: ratio > 0.5 ? 600 : 400
+        };
+    };
+
     return (
         <div className="space-y-6 animate-fade-in">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -169,22 +195,26 @@ export function DLTBasicAnalysis() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-border">
-                                            {Array.from({ length: 35 }, (_, i) => i + 1).map((num) => (
-                                                <tr key={num} className="hover:bg-muted/30">
-                                                    <td className="px-2 py-1 border-r border-border">
-                                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-500 text-white text-xs">{num.toString().padStart(2, "0")}</span>
-                                                    </td>
-                                                    {data.front_positions.map((pos) => {
-                                                        const stat = pos.stats.find((s) => s.number === num);
-                                                        return (
-                                                            <React.Fragment key={pos.position}>
-                                                                <td className="px-1 py-1 text-right text-muted-foreground">{stat?.count || 0}</td>
-                                                                <td className="px-1 py-1 text-right text-muted-foreground border-r border-border">{stat ? (stat.frequency * 100).toFixed(2) : "0.00"}%</td>
-                                                            </React.Fragment>
-                                                        );
-                                                    })}
-                                                </tr>
-                                            ))}
+                                            {(() => {
+                                                const maxCount = getMaxFrontCount();
+                                                return Array.from({ length: 35 }, (_, i) => i + 1).map((num) => (
+                                                    <tr key={num} className="hover:bg-muted/30">
+                                                        <td className="px-2 py-1 border-r border-border">
+                                                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-500 text-white text-xs">{num.toString().padStart(2, "0")}</span>
+                                                        </td>
+                                                        {data.front_positions.map((pos) => {
+                                                            const stat = pos.stats.find((s) => s.number === num);
+                                                            const count = stat?.count || 0;
+                                                            return (
+                                                                <React.Fragment key={pos.position}>
+                                                                    <td className="px-1 py-1 text-right text-sm" style={getFrequencyColor(count, maxCount)}>{count}</td>
+                                                                    <td className="px-1 py-1 text-right text-sm border-r border-border" style={getFrequencyColor(count, maxCount)}>{stat ? (stat.frequency * 100).toFixed(2) : "0.00"}%</td>
+                                                                </React.Fragment>
+                                                            );
+                                                        })}
+                                                    </tr>
+                                                ));
+                                            })()}
                                         </tbody>
                                     </table>
                                 </div>
@@ -203,22 +233,26 @@ export function DLTBasicAnalysis() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-border">
-                                            {Array.from({ length: 12 }, (_, i) => i + 1).map((num) => (
-                                                <tr key={num} className="hover:bg-muted/30">
-                                                    <td className="px-2 py-1 border-r border-border">
-                                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-xs">{num.toString().padStart(2, "0")}</span>
-                                                    </td>
-                                                    {data.back_positions.map((pos) => {
-                                                        const stat = pos.stats.find((s) => s.number === num);
-                                                        return (
-                                                            <React.Fragment key={pos.position}>
-                                                                <td className="px-1 py-1 text-right text-muted-foreground">{stat?.count || 0}</td>
-                                                                <td className="px-1 py-1 text-right text-muted-foreground border-r border-border">{stat ? (stat.frequency * 100).toFixed(2) : "0.00"}%</td>
-                                                            </React.Fragment>
-                                                        );
-                                                    })}
-                                                </tr>
-                                            ))}
+                                            {(() => {
+                                                const maxCount = getMaxBackCount();
+                                                return Array.from({ length: 12 }, (_, i) => i + 1).map((num) => (
+                                                    <tr key={num} className="hover:bg-muted/30">
+                                                        <td className="px-2 py-1 border-r border-border">
+                                                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-xs">{num.toString().padStart(2, "0")}</span>
+                                                        </td>
+                                                        {data.back_positions.map((pos) => {
+                                                            const stat = pos.stats.find((s) => s.number === num);
+                                                            const count = stat?.count || 0;
+                                                            return (
+                                                                <React.Fragment key={pos.position}>
+                                                                    <td className="px-1 py-1 text-right text-sm" style={getBackFrequencyColor(count, maxCount)}>{count}</td>
+                                                                    <td className="px-1 py-1 text-right text-sm border-r border-border" style={getBackFrequencyColor(count, maxCount)}>{stat ? (stat.frequency * 100).toFixed(2) : "0.00"}%</td>
+                                                                </React.Fragment>
+                                                            );
+                                                        })}
+                                                    </tr>
+                                                ));
+                                            })()}
                                         </tbody>
                                     </table>
                                 </div>

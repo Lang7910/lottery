@@ -327,6 +327,10 @@ export function WatchlistManager({ lotteryType = "ssq", onBatchBet, onSelectForB
             const red = item.numbers.red?.join(",") || "";
             const blue = item.numbers.blue;
             setEditNumbers(`${red}+${blue}`);
+        } else if (lotteryType === "hk6") {
+            const nums = item.numbers.numbers?.join(",") || "";
+            const special = item.numbers.special;
+            setEditNumbers(`${nums}+${special}`);
         } else {
             const front = item.numbers.front?.join(",") || "";
             const back = (item.numbers.back as number[])?.join(",") || "";
@@ -345,6 +349,10 @@ export function WatchlistManager({ lotteryType = "ssq", onBatchBet, onSelectForB
                 const red = parts[0].split(",").map(n => parseInt(n.trim())).filter(n => !isNaN(n));
                 const blue = parseInt(parts[1]?.trim());
                 numbers = { red, blue: isNaN(blue) ? 1 : blue };
+            } else if (lotteryType === "hk6") {
+                const nums = parts[0].split(",").map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+                const special = parseInt(parts[1]?.trim());
+                numbers = { numbers: nums, special: isNaN(special) ? 1 : special };
             } else {
                 const front = parts[0].split(",").map(n => parseInt(n.trim())).filter(n => !isNaN(n));
                 const back = parts[1]?.split(",").map(n => parseInt(n.trim())).filter(n => !isNaN(n)) || [];
