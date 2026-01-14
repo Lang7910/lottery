@@ -10,12 +10,14 @@ log() {
 
 log "====== 开始部署 ======"
 
-# 1. 拉取最新代码
-log "1. 正在拉取最新代码..."
-if git pull; then
-    log "代码拉取成功"
+# 1. 强制同步代码 (使用 reset --hard 确保与远程仓库完全一致)
+# 注意：这会丢弃本地未提交的修改，但不会删除未被 git 追踪的文件（如 .env, lottery.db）
+log "1. 正在同步最新代码..."
+git fetch --all
+if git reset --hard origin/main; then
+    log "代码同步成功"
 else
-    log "错误: 代码拉取失败，请检查 git 状态"
+    log "错误: 代码同步失败"
     exit 1
 fi
 
