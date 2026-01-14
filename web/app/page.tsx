@@ -14,6 +14,7 @@ import { DLTTrendAnalysis } from "@/components/DLTTrendAnalysis";
 import { HK6TrendAnalysis } from "@/components/HK6TrendAnalysis";
 import { SSQPrediction } from "@/components/SSQPrediction";
 import { DLTPrediction } from "@/components/DLTPrediction";
+import { HK6Prediction } from "@/components/HK6Prediction";
 import { SSQKillAnalysis } from "@/components/SSQKillAnalysis";
 import { DLTKillAnalysis } from "@/components/DLTKillAnalysis";
 import { MetaphysicalPrediction } from "@/components/MetaphysicalPrediction";
@@ -84,6 +85,9 @@ function HomeContent() {
 
     // HK6 预测功能
     if (lotteryType === "hk6" && mainSection === "prediction") {
+      if (predictionTab === "timeseries") {
+        return <HK6Prediction />;
+      }
       if (predictionTab === "metaphysical") {
         return <HK6MetaphysicalPrediction />;
       }
@@ -91,7 +95,7 @@ function HomeContent() {
       return (
         <div className="glass-card p-8 text-center">
           <h2 className="text-xl font-semibold text-foreground mb-2">六合彩此预测功能开发中</h2>
-          <p className="text-muted-foreground">请使用玄学预测功能</p>
+          <p className="text-muted-foreground">请使用时间序列或玄学预测功能</p>
         </div>
       );
     }

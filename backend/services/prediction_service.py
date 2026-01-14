@@ -592,3 +592,340 @@ class DLTPredictionService:
                 used.add(pred)
         
         return sorted(result)
+
+
+class HK6PredictionService:
+    """六合彩时间序列预测服务 - 支持号码、波色、生肖预测"""
+    
+    METHODS = ["ma", "es", "rf", "svr", "arima"]
+    METHOD_NAMES = {
+        "ma": "移动平均",
+        "es": "指数平滑",
+        "rf": "随机森林",
+        "svr": "支持向量机",
+        "arima": "ARIMA"
+    }
+    METHOD_PARAMS = SSQPredictionService.METHOD_PARAMS
+    
+    # 波色映射 (1-49)
+    WAVE_COLORS = {
+        "red": [1, 2, 7, 8, 12, 13, 18, 19, 23, 24, 29, 30, 34, 35, 40, 45, 46],
+        "blue": [3, 4, 9, 10, 14, 15, 20, 25, 26, 31, 36, 37, 41, 42, 47, 48],
+        "green": [5, 6, 11, 16, 17, 21, 22, 27, 28, 32, 33, 38, 39, 43, 44, 49]
+    }
+    
+    # 生肖列表 (2024年为龙年，每12年循环)
+    ZODIACS = ["鼠", "牛", "虎", "兔", "龙", "蛇", "马", "羊", "猴", "鸡", "狗", "猪"]
+    
+    def __init__(self, db: Session):
+        self.db = db
+    
+    def get_method_params(self) -> Dict:
+        return self.METHOD_PARAMS
+    
+    def get_wave_color(self, num: int) -> str:
+        """获取号码对应的波色"""
+        for color, nums in self.WAVE_COLORS.items():
+            if num in nums:
+                return color
+        return "unknown"
+    
+    def get_zodiac_by_date(self, num: int, draw_date: str) -> str:
+        """根据开奖日期计算号码对应的生肖"""
+        from datetime import datetime
+        try:
+            if isinstance(draw_date, str):
+                dt = datetime.strptime(draw_date[:10], "%Y-%m-%d")
+            else:
+                dt = draw_date
+            year = dt.year
+            # 2024年是龙年(生肖索引4)，每年生肖递增
+            base_year = 2024
+            base_zodiac_idx = 4  # 龙
+            year_offset = year - base_year
+            # 计算当年的生肖起始索引
+            current_year_zodiac = (base_zodiac_idx + year_offset) % 12
+            # 号码1对应当年生肖，49往回推
+            zodiac_idx = (current_year_zodiac - (num - 1)) % 12
+            return self.ZODIACS[zodiac_idx]
+        except:
+            return "未知"
+    
+    def predict(self, method: str = "ma", lookback: int = 100, params: Dict = None) -> Dict:
+        """使用指定方法预测下一期号码"""
+        from models.hk6 import HK6Result
+        params = params or {}
+        
+        results = self.db.query(HK6Result).order_by(desc(HK6Result.year), desc(HK6Result.no)).limit(lookback).all()
+        if len(results) < 10:
+            return {"error": "数据不足", "numbers": [], "special": None}
+        
+        results = list(reversed(results))
+        
+        # 预测6个主号码
+        number_predictions = []
+        num_fields = ['num1', 'num2', 'num3', 'num4', 'num5', 'num6']
+        for i, field in enumerate(num_fields):
+            series = np.array([getattr(r, field) for r in results if getattr(r, field, None)])
+            series = series[series > 0]  # 过滤无效数据
+            if len(series) > 5:
+                pred = predict_next_number(series, method, 1, 49, params)
+                number_predictions.append(pred)
+        
+        number_predictions = self._ensure_sorted_unique(number_predictions, 1, 49)
+        while len(number_predictions) < 6:
+            # 填充缺失号码
+            for n in range(1, 50):
+                if n not in number_predictions:
+                    number_predictions.append(n)
+                    break
+            number_predictions = sorted(number_predictions)[:6]
+        
+        # 预测特码
+        special_series = np.array([r.special for r in results])
+        special_pred = predict_next_number(special_series, method, 1, 49, params)
+        
+        # 预测波色趋势
+        wave_prediction = self._predict_wave(results, method, params)
+        
+        # 预测生肖趋势
+        zodiac_prediction = self._predict_zodiac(results, method, params)
+        
+        return {
+            "method": method,
+            "method_name": self.METHOD_NAMES.get(method, method),
+            "numbers": number_predictions,
+            "special": special_pred,
+            "wave_prediction": wave_prediction,
+            "zodiac_prediction": zodiac_prediction,
+            "params": params,
+            "sample_size": len(results)
+        }
+    
+    def _predict_wave(self, results, method: str, params: Dict) -> Dict:
+        """预测波色趋势"""
+        # 统计特码的波色序列
+        wave_series = []
+        for r in results:
+            wave = self.get_wave_color(r.special)
+            wave_series.append({"red": 0, "blue": 1, "green": 2}.get(wave, 0))
+        
+        if len(wave_series) < 5:
+            return {"predicted": "red", "confidence": 0.33}
+        
+        series = np.array(wave_series)
+        pred = predict_next_number(series, method, 0, 2, params)
+        
+        wave_map = {0: "red", 1: "blue", 2: "green"}
+        predicted_wave = wave_map.get(pred, "red")
+        
+        # 计算置信度 (基于最近N期的波色分布)
+        recent = wave_series[-20:]
+        wave_counts = Counter(recent)
+        total = len(recent)
+        confidence = wave_counts.get(pred, 0) / total if total > 0 else 0.33
+        
+        return {"predicted": predicted_wave, "confidence": round(confidence, 2)}
+    
+    def _predict_zodiac(self, results, method: str, params: Dict) -> Dict:
+        """预测生肖趋势"""
+        # 统计特码的生肖序列
+        zodiac_series = []
+        for r in results:
+            zodiac = self.get_zodiac_by_date(r.special, r.date)
+            idx = self.ZODIACS.index(zodiac) if zodiac in self.ZODIACS else 0
+            zodiac_series.append(idx)
+        
+        if len(zodiac_series) < 5:
+            return {"predicted": "龙", "confidence": 0.08}
+        
+        series = np.array(zodiac_series)
+        pred = predict_next_number(series, method, 0, 11, params)
+        
+        predicted_zodiac = self.ZODIACS[pred] if 0 <= pred < 12 else "龙"
+        
+        # 计算置信度
+        recent = zodiac_series[-30:]
+        zodiac_counts = Counter(recent)
+        total = len(recent)
+        confidence = zodiac_counts.get(pred, 0) / total if total > 0 else 0.08
+        
+        return {"predicted": predicted_zodiac, "confidence": round(confidence, 2)}
+    
+    def predict_all_methods(self, lookback: int = 100, method_params: Dict = None) -> List[Dict]:
+        """使用所有方法预测"""
+        method_params = method_params or {}
+        results = []
+        for method in self.METHODS:
+            try:
+                params = method_params.get(method, {})
+                result = self.predict(method, lookback, params)
+                results.append(result)
+            except Exception as e:
+                logger.error(f"HK6方法 {method} 预测失败: {e}")
+                results.append({
+                    "method": method,
+                    "method_name": self.METHOD_NAMES.get(method, method),
+                    "error": str(e)
+                })
+        return results
+    
+    def generate_recommendations(self, lookback: int = 100, num_sets: int = 5,
+                                  method_params: Dict = None,
+                                  aggregation: str = "vote") -> Dict:
+        """生成多组推荐号码"""
+        predictions = self.predict_all_methods(lookback, method_params)
+        valid_predictions = [p for p in predictions if "error" not in p]
+        
+        if not valid_predictions:
+            return {"error": "无有效预测结果", "sets": []}
+        
+        sets = []
+        
+        if aggregation == "vote":
+            sets.append(self._aggregate_voting(valid_predictions))
+        elif aggregation == "average":
+            sets.append(self._aggregate_average(valid_predictions))
+        elif aggregation == "weighted":
+            weights = {"ma": 1.0, "es": 1.2, "rf": 1.5, "svr": 1.3, "arima": 1.4}
+            sets.append(self._aggregate_weighted(valid_predictions, weights))
+        elif aggregation == "all":
+            sets.append({**self._aggregate_voting(valid_predictions), "agg_method": "多数投票"})
+            sets.append({**self._aggregate_average(valid_predictions), "agg_method": "平均法"})
+            weights = {"ma": 1.0, "es": 1.2, "rf": 1.5, "svr": 1.3, "arima": 1.4}
+            sets.append({**self._aggregate_weighted(valid_predictions, weights), "agg_method": "加权平均"})
+        
+        # 提取波色和生肖预测
+        wave_predictions = [p.get("wave_prediction", {}).get("predicted") for p in valid_predictions if p.get("wave_prediction")]
+        zodiac_predictions = [p.get("zodiac_prediction", {}).get("predicted") for p in valid_predictions if p.get("zodiac_prediction")]
+        
+        wave_vote = Counter(wave_predictions).most_common(1)
+        zodiac_vote = Counter(zodiac_predictions).most_common(1)
+        
+        # 生成多组变体
+        if num_sets > len(sets):
+            base_set = sets[0] if sets else self._aggregate_voting(valid_predictions)
+            for i in range(num_sets - len(sets)):
+                variant = self._generate_variant(base_set, i + 1)
+                sets.append(variant)
+        
+        return {
+            "predictions": predictions,
+            "sets": sets[:num_sets],
+            "aggregation": aggregation,
+            "wave_trend": {"predicted": wave_vote[0][0] if wave_vote else "red"},
+            "zodiac_trend": {"predicted": zodiac_vote[0][0] if zodiac_vote else "龙"}
+        }
+    
+    def _aggregate_voting(self, predictions: List[Dict]) -> Dict:
+        """多数投票聚合"""
+        num_votes = Counter()
+        special_votes = Counter()
+        
+        for p in predictions:
+            for n in p.get("numbers", []):
+                num_votes[n] += 1
+            special_votes[p.get("special", 0)] += 1
+        
+        top_numbers = sorted([to_native(n) for n, _ in num_votes.most_common(6)])
+        top_special = to_native(special_votes.most_common(1)[0][0]) if special_votes else 1
+        
+        return {"numbers": top_numbers, "special": top_special, "agg_method": "多数投票"}
+    
+    def _aggregate_average(self, predictions: List[Dict]) -> Dict:
+        """平均法聚合"""
+        num_avg = []
+        for i in range(6):
+            vals = [p["numbers"][i] for p in predictions if len(p.get("numbers", [])) > i]
+            if vals:
+                num_avg.append(int(round(np.mean(vals))))
+        
+        special_vals = [p.get("special", 0) for p in predictions if p.get("special")]
+        special_avg = int(round(np.mean(special_vals))) if special_vals else 1
+        
+        num_avg = [to_native(x) for x in self._ensure_sorted_unique(num_avg, 1, 49)]
+        special_avg = to_native(max(1, min(49, special_avg)))
+        
+        return {"numbers": num_avg, "special": special_avg, "agg_method": "平均法"}
+    
+    def _aggregate_weighted(self, predictions: List[Dict], weights: Dict) -> Dict:
+        """加权平均聚合"""
+        num_weighted = []
+        for i in range(6):
+            total_weight = 0
+            weighted_sum = 0
+            for p in predictions:
+                if len(p.get("numbers", [])) > i:
+                    w = weights.get(p["method"], 1.0)
+                    weighted_sum += p["numbers"][i] * w
+                    total_weight += w
+            if total_weight > 0:
+                num_weighted.append(int(round(weighted_sum / total_weight)))
+        
+        special_weighted_sum = 0
+        special_total_weight = 0
+        for p in predictions:
+            if p.get("special"):
+                w = weights.get(p["method"], 1.0)
+                special_weighted_sum += p["special"] * w
+                special_total_weight += w
+        
+        special_weighted = int(round(special_weighted_sum / special_total_weight)) if special_total_weight > 0 else 1
+        
+        num_weighted = [to_native(x) for x in self._ensure_sorted_unique(num_weighted, 1, 49)]
+        special_weighted = to_native(max(1, min(49, special_weighted)))
+        
+        return {"numbers": num_weighted, "special": special_weighted, "agg_method": "加权平均"}
+    
+    def _generate_variant(self, base: Dict, seed: int) -> Dict:
+        """基于基础结果生成变体"""
+        np.random.seed(seed)
+        numbers = list(base.get("numbers", []))
+        special = base.get("special", 1)
+        
+        # 随机调整1-2个号码
+        for _ in range(min(2, len(numbers))):
+            idx = np.random.randint(0, len(numbers))
+            delta = np.random.choice([-3, -2, -1, 1, 2, 3])
+            new_val = max(1, min(49, numbers[idx] + delta))
+            if new_val not in numbers:
+                numbers[idx] = new_val
+        
+        numbers = sorted(set([to_native(x) for x in numbers]))[:6]
+        while len(numbers) < 6:
+            new_num = int(np.random.randint(1, 50))
+            if new_num not in numbers:
+                numbers.append(new_num)
+        numbers = sorted(numbers)
+        
+        # 随机调整特码
+        if np.random.random() > 0.5:
+            special = int(max(1, min(49, special + np.random.choice([-2, -1, 1, 2]))))
+        
+        return {"numbers": [to_native(x) for x in numbers], "special": to_native(special), "agg_method": f"变体{seed}"}
+    
+    def _ensure_sorted_unique(self, predictions: List[int], min_val: int, max_val: int) -> List[int]:
+        """确保预测号码递增且不重复"""
+        result = []
+        used = set()
+        
+        for pred in predictions:
+            if pred in used:
+                for delta in range(1, max_val):
+                    if pred + delta <= max_val and pred + delta not in used:
+                        pred = pred + delta
+                        break
+                    if pred - delta >= min_val and pred - delta not in used:
+                        pred = pred - delta
+                        break
+            
+            if result and pred <= result[-1]:
+                pred = result[-1] + 1
+                while pred in used and pred <= max_val:
+                    pred += 1
+            
+            if pred <= max_val:
+                result.append(pred)
+                used.add(pred)
+        
+        return sorted(result)

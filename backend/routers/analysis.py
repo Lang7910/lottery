@@ -206,6 +206,21 @@ def recommend_dlt(
     return service.generate_recommendations(lookback, num_sets, aggregation=aggregation)
 
 
+# ==================== 六合彩时间序列预测 API ==================== #
+
+@router.get("/hk6/recommend")
+def recommend_hk6(
+    lookback: int = Query(100, description="历史数据量", ge=20, le=500),
+    num_sets: int = Query(5, description="推荐组数", ge=1, le=20),
+    aggregation: str = Query("all", description="聚合方法: vote, average, weighted, all"),
+    db: Session = Depends(get_db),
+):
+    """六合彩综合推荐（含号码、波色、生肖预测）"""
+    from services.prediction_service import HK6PredictionService
+    service = HK6PredictionService(db)
+    return service.generate_recommendations(lookback, num_sets, aggregation=aggregation)
+
+
 # ==================== 杀号 API ==================== #
 
 @router.get("/ssq/kill")
