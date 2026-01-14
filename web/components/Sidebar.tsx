@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { BarChart3, ListOrdered, ChevronRight, TrendingUp, Sparkles, Clock, Scissors, Moon, Layers, ChevronDown, Menu, X } from "lucide-react";
+import { BarChart3, ListOrdered, ChevronRight, TrendingUp, Sparkles, Clock, Scissors, Moon, Layers, ChevronDown } from "lucide-react";
 
 export type MainSection = "results" | "analysis" | "prediction";
 export type AnalysisTab = "basic" | "trend";
@@ -20,10 +20,12 @@ interface SidebarProps {
     analysisTab: AnalysisTab;
     predictionTab: PredictionTab;
     lotteryType: LotteryType;
+    isOpen: boolean;
     onMainSectionChange: (section: MainSection) => void;
     onAnalysisTabChange: (tab: AnalysisTab) => void;
     onPredictionTabChange: (tab: PredictionTab) => void;
     onLotteryTypeChange: (type: LotteryType) => void;
+    onClose: () => void;
 }
 
 export function Sidebar({
@@ -31,63 +33,42 @@ export function Sidebar({
     analysisTab,
     predictionTab,
     lotteryType,
+    isOpen,
     onMainSectionChange,
     onAnalysisTabChange,
     onPredictionTabChange,
     onLotteryTypeChange,
+    onClose,
 }: SidebarProps) {
-    const [isOpen, setIsOpen] = useState(false);
-    const [isMobile, setIsMobile] = useState(false);
     const currentLottery = LOTTERY_OPTIONS.find(o => o.value === lotteryType);
-
-    // 检测移动端
-    useEffect(() => {
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth < 768);
-            if (window.innerWidth >= 768) {
-                setIsOpen(true);
-            }
-        };
-        checkMobile();
-        window.addEventListener("resize", checkMobile);
-        return () => window.removeEventListener("resize", checkMobile);
-    }, []);
 
     // 移动端点击菜单项后自动关闭
     const handleNavClick = (callback: () => void) => {
         callback();
-        if (isMobile) setIsOpen(false);
+        // 只在小屏幕时关闭
+        if (window.innerWidth < 768) {
+            onClose();
+        }
     };
 
     return (
         <>
-            {/* 移动端菜单按钮 */}
-            {isMobile && (
-                <button
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="fixed left-4 top-20 z-50 p-2 rounded-lg bg-card border border-border shadow-lg md:hidden"
-                    aria-label="Toggle menu"
-                >
-                    {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                </button>
-            )}
-
-            {/* 遮罩层 */}
-            {isMobile && isOpen && (
+            {/* 遮罩层 - 仅移动端 */}
+            {isOpen && (
                 <div
                     className="fixed inset-0 bg-black/50 z-30 md:hidden"
-                    onClick={() => setIsOpen(false)}
+                    onClick={onClose}
                 />
             )}
 
             {/* 侧边栏 */}
             <aside className={cn(
-                "shrink-0 border-r border-border bg-card/95 backdrop-blur-md min-h-[calc(100vh-64px)] transition-all duration-300 z-40",
-                // 移动端: 固定定位，可收起
-                isMobile ? "fixed left-0 top-16 w-64" : "w-56",
-                isMobile && !isOpen && "-translate-x-full"
+                "shrink-0 border-r border-border bg-card min-h-[calc(100vh-64px)] transition-transform duration-300 z-40",
+                // 移动端: 固定定位, 桌面端: 静态定位
+                "fixed md:relative left-0 top-16 w-64 md:w-56",
+                isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
             )}>
-                <div className="p-4 space-y-6">
+                <div className="p-4 space-y-6 h-full overflow-y-auto">
                     {/* 彩种选择 - 下拉菜单 */}
                     <div className="space-y-2">
                         <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">

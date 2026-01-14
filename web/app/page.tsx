@@ -21,7 +21,7 @@ import { HK6MetaphysicalPrediction } from "@/components/HK6MetaphysicalPredictio
 import { ComprehensiveRecommendation } from "@/components/ComprehensiveRecommendation";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserAuthButton } from "@/components/UserAuthButton";
-import { Dice5, Loader2 } from "lucide-react";
+import { Dice5, Loader2, Menu } from "lucide-react";
 
 function HomeContent() {
   const router = useRouter();
@@ -43,6 +43,9 @@ function HomeContent() {
 
   // 标记是否已完成初始化
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // 移动端侧边栏状态
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // 同步状态到 URL (仅在状态变化时，且已初始化后)
   useEffect(() => {
@@ -126,8 +129,16 @@ function HomeContent() {
       <header className="fixed top-0 left-0 right-0 z-50 h-16 border-b border-border bg-card/80 backdrop-blur-md">
         <div className="h-full px-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
+            {/* 移动端菜单按钮 */}
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 rounded-lg hover:bg-muted transition-colors md:hidden"
+              aria-label="切换菜单"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
             <Dice5 className="w-7 h-7 text-primary" />
-            <span className="text-lg font-semibold text-foreground">彩票分析</span>
+            <span className="text-lg font-semibold text-foreground hidden sm:inline">彩票分析</span>
           </div>
           <div className="flex items-center gap-3">
             <a
@@ -156,10 +167,12 @@ function HomeContent() {
           analysisTab={analysisTab}
           predictionTab={predictionTab}
           lotteryType={lotteryType}
+          isOpen={sidebarOpen}
           onMainSectionChange={setMainSection}
           onAnalysisTabChange={setAnalysisTab}
           onPredictionTabChange={setPredictionTab}
           onLotteryTypeChange={setLotteryType}
+          onClose={() => setSidebarOpen(false)}
         />
 
         {/* 内容区 - 移动端全宽，桌面端减去侧边栏 */}
