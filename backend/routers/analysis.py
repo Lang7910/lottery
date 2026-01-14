@@ -9,6 +9,7 @@ from sqlalchemy import desc
 from database import get_db
 from services.ssq_analysis import SSQAnalysisService
 from services.dlt_analysis import DLTAnalysisService
+from services.hk6_analysis import HK6AnalysisService
 from models.ssq import SSQResult
 from models.dlt import DLTResult
 
@@ -335,6 +336,14 @@ def get_metaphysical_simple(
         except:
             pass
     
+    # HK6 使用专用方法
+    if lottery == "hk6":
+        return service.predict_hk6(
+            draw_time=draw_time,
+            num_sets=num_sets,
+            methods=["zodiac_prediction", "wave_wuxing", "bazi_wuxing", "meihua", "jiazi_cycle"]
+        )
+    
     return service.predict(
         lottery_type=lottery,
         methods=["bazi_wuxing", "meihua", "jiazi_cycle"],
@@ -342,3 +351,80 @@ def get_metaphysical_simple(
         draw_time=draw_time
     )
 
+
+# ================================
+# 六合彩分析接口
+# ================================
+
+@router.get("/hk6/frequency")
+def get_hk6_frequency(
+    start_period: Optional[str] = Query(None, description="起始期号"),
+    end_period: Optional[str] = Query(None, description="结束期号"),
+    limit: Optional[int] = Query(None, description="限制期数"),
+    db: Session = Depends(get_db),
+):
+    """获取六合彩号码频率统计"""
+    service = HK6AnalysisService(db)
+    return service.get_number_frequency(
+        start_period=start_period,
+        end_period=end_period,
+        limit=limit,
+    )
+
+
+@router.get("/hk6/wave")
+def get_hk6_wave_stats(
+    start_period: Optional[str] = Query(None, description="起始期号"),
+    end_period: Optional[str] = Query(None, description="结束期号"),
+    limit: Optional[int] = Query(None, description="限制期数"),
+    db: Session = Depends(get_db),
+):
+    """获取六合彩波色统计"""
+    service = HK6AnalysisService(db)
+    return service.get_wave_color_stats(
+        start_period=start_period,
+        end_period=end_period,
+        limit=limit,
+    )
+
+
+@router.get("/hk6/zodiac")
+def get_hk6_zodiac_stats(
+    start_period: Optional[str] = Query(None, description="起始期号"),
+    end_period: Optional[str] = Query(None, description="结束期号"),
+    limit: Optional[int] = Query(None, description="限制期数"),
+    db: Session = Depends(get_db),
+):
+    """获取六合彩生肖统计"""
+    service = HK6AnalysisService(db)
+    return service.get_zodiac_stats(
+        start_period=start_period,
+        end_period=end_period,
+        limit=limit,
+    )
+
+
+@router.get("/hk6/metaphysical")
+def get_hk6_metaphysical(
+    num_sets: int = Query(5, description="推荐组数", ge=1, le=10),
+    custom_time: Optional[str] = Query(None, description="自定义时间 YYYY-MM-DD HH:MM"),
+):
+    """六合彩玄学预测"""
+    from services.metaphysical_service import MetaphysicalService
+    from datetime import datetime
+    
+    service = MetaphysicalService()
+    draw_time = None
+    if custom_time:
+        try:
+            draw_time = datetime.fromisoformat(
+                custom_time.replace("T", " ").replace("Z", "")
+            )
+        except:
+            pass
+    
+    return service.predict_hk6(
+        draw_time=draw_time,
+        num_sets=num_sets,
+        methods=["zodiac_prediction", "wave_wuxing", "bazi_wuxing", "meihua", "jiazi_cycle"]
+    )

@@ -8,3 +8,12 @@ node_modules
 npm-debug.log*
 .DS_Store
 README.md
+# Environment files
+.env
+.env.*
+.env.local
+# TypeScript build info
+*.tsbuildinfo
+# Test files
+coverage
+.nyc_output

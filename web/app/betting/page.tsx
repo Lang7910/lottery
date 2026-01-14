@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { WatchlistManager } from "@/components/WatchlistManager";
 import { BettingPanel } from "@/components/BettingPanel";
+import { HK6BettingPanel } from "@/components/HK6BettingPanel";
 import { BetHistory } from "@/components/BetHistory";
 import { Dice5, Bookmark, Send, History, ArrowLeft } from "lucide-react";
 import { cn, API_BASE_URL } from "@/lib/utils";
@@ -17,7 +18,7 @@ type Tab = "watchlist" | "betting" | "history";
 export default function BettingPage() {
     const { isSignedIn } = useAuth();
     const [activeTab, setActiveTab] = useState<Tab>("watchlist");
-    const [lotteryType, setLotteryType] = useState<"ssq" | "dlt">("ssq");
+    const [lotteryType, setLotteryType] = useState<"ssq" | "dlt" | "hk6">("ssq");
     const [selectedNumbers, setSelectedNumbers] = useState<any>(null);
     const [nextPeriod, setNextPeriod] = useState<number>(0);
 
@@ -25,13 +26,23 @@ export default function BettingPage() {
     useEffect(() => {
         const fetchLatestPeriod = async () => {
             try {
-                const res = await fetch(`${API_BASE_URL}/api/${lotteryType}/?limit=1`);
+                // HK6 uses hk6 endpoint
+                const endpoint = lotteryType === "hk6" ? "hk6" : lotteryType;
+                const res = await fetch(`${API_BASE_URL}/api/${endpoint}/?limit=1`);
                 if (res.ok) {
                     const data = await res.json();
                     if (data.items && data.items.length > 0) {
-                        const latestPeriod = parseInt(data.items[0].period);
-                        // 简单+1计算下一期 (跨年边界留给用户手动调整)
-                        setNextPeriod(latestPeriod + 1);
+                        const item = data.items[0];
+                        if (lotteryType === "hk6") {
+                            // HK6: year * 1000 + no, e.g., 26/005 -> 26005, next is 26006
+                            const year = parseInt(item.year) || 26;
+                            const no = parseInt(item.no) || 0;
+                            setNextPeriod(year * 1000 + no + 1);
+                        } else {
+                            // SSQ/DLT: simple +1
+                            const latestPeriod = parseInt(item.period);
+                            setNextPeriod(latestPeriod + 1);
+                        }
                     }
                 }
             } catch (err) {
@@ -87,7 +98,7 @@ export default function BettingPage() {
                     </div>
                     {/* 彩种切换 */}
                     <div className="flex gap-1">
-                        {["ssq", "dlt"].map((type) => (
+                        {["ssq", "dlt", "hk6"].map((type) => (
                             <button
                                 key={type}
                                 onClick={() => setLotteryType(type as any)}
@@ -98,7 +109,7 @@ export default function BettingPage() {
                                         : "bg-muted hover:bg-border"
                                 )}
                             >
-                                {type === "ssq" ? "双色球" : "大乐透"}
+                                {type === "ssq" ? "双色球" : type === "dlt" ? "大乐透" : "六合彩"}
                             </button>
                         ))}
                     </div>
@@ -135,15 +146,23 @@ export default function BettingPage() {
                     />
                 )}
                 {activeTab === "betting" && (
-                    <BettingPanel
-                        lotteryType={lotteryType}
-                        initialNumbers={selectedNumbers}
-                        targetPeriod={nextPeriod}
-                        onSuccess={() => {
-                            setSelectedNumbers(null);
-                            setActiveTab("history");
-                        }}
-                    />
+                    lotteryType === "hk6" ? (
+                        <HK6BettingPanel
+                            onSuccess={() => {
+                                setSelectedNumbers(null);
+                            }}
+                        />
+                    ) : (
+                        <BettingPanel
+                            lotteryType={lotteryType}
+                            initialNumbers={selectedNumbers}
+                            targetPeriod={nextPeriod}
+                            onSuccess={() => {
+                                setSelectedNumbers(null);
+                                setActiveTab("history");
+                            }}
+                        />
+                    )
                 )}
                 {activeTab === "history" && (
                     <BetHistory lotteryType={lotteryType} />

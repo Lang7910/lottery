@@ -107,8 +107,116 @@ SHICHEN_MAP = [
     (15, 17, "申"), (17, 19, "酉"), (19, 21, "戌"), (21, 23, "亥")
 ]
 
+# ==================== 六合彩专用常量 ==================== #
 
-# ==================== 基础计算函数 ==================== #
+# 十二生肖列表 (按顺序)
+HK6_ZODIACS = ["鼠", "牛", "虎", "兔", "龙", "蛇", "马", "羊", "猴", "鸡", "狗", "猪"]
+
+# 地支对应生肖索引
+DIZHI_ZODIAC_IDX = {
+    "子": 0, "丑": 1, "寅": 2, "卯": 3, "辰": 4, "巳": 5,
+    "午": 6, "未": 7, "申": 8, "酉": 9, "戌": 10, "亥": 11
+}
+
+# 六合关系 (地支六合)
+LIUHE = {
+    "子": "丑", "丑": "子",  # 子丑合土
+    "寅": "亥", "亥": "寅",  # 寅亥合木
+    "卯": "戌", "戌": "卯",  # 卯戌合火
+    "辰": "酉", "酉": "辰",  # 辰酉合金
+    "巳": "申", "申": "巳",  # 巳申合水
+    "午": "未", "未": "午",  # 午未合土
+}
+
+# 三合关系 (地支三合局)
+SANHE = {
+    "申": ["子", "辰"],  # 申子辰合水
+    "子": ["申", "辰"],
+    "辰": ["申", "子"],
+    "寅": ["午", "戌"],  # 寅午戌合火
+    "午": ["寅", "戌"],
+    "戌": ["寅", "午"],
+    "巳": ["酉", "丑"],  # 巳酉丑合金
+    "酉": ["巳", "丑"],
+    "丑": ["巳", "酉"],
+    "亥": ["卯", "未"],  # 亥卯未合木
+    "卯": ["亥", "未"],
+    "未": ["亥", "卯"],
+}
+
+# 波色映射 (固定)
+HK6_WAVE_RED = [1, 2, 7, 8, 12, 13, 18, 19, 23, 24, 29, 30, 34, 35, 40, 45, 46]
+HK6_WAVE_BLUE = [3, 4, 9, 10, 14, 15, 20, 25, 26, 31, 36, 37, 41, 42, 47, 48]
+HK6_WAVE_GREEN = [5, 6, 11, 16, 17, 21, 22, 27, 28, 32, 33, 38, 39, 43, 44, 49]
+
+# 波色与五行对应
+WAVE_WUXING = {
+    "红波": "火",
+    "蓝波": "水", 
+    "绿波": "木",
+}
+
+# 农历新年日期表
+HK6_LUNAR_NEW_YEAR = {
+    2024: (2, 10), 2025: (1, 29), 2026: (2, 17), 2027: (2, 6),
+    2028: (1, 26), 2029: (2, 13), 2030: (2, 3),
+}
+
+# 年份对应生肖索引 (该年农历新年后)
+HK6_YEAR_ZODIAC = {
+    2024: 4,  # 龙
+    2025: 5,  # 蛇
+    2026: 6,  # 马
+    2027: 7,  # 羊
+    2028: 8,  # 猴
+    2029: 9,  # 鸡
+    2030: 10, # 狗
+}
+
+
+def get_hk6_lunar_year(date: datetime) -> int:
+    """获取日期对应的农历年份"""
+    year = date.year
+    cny = HK6_LUNAR_NEW_YEAR.get(year)
+    if cny:
+        cny_month, cny_day = cny
+        if date.month < cny_month or (date.month == cny_month and date.day < cny_day):
+            return year - 1
+    return year
+
+
+def get_hk6_year_zodiac_idx(lunar_year: int) -> int:
+    """获取农历年对应的生肖索引"""
+    if lunar_year in HK6_YEAR_ZODIAC:
+        return HK6_YEAR_ZODIAC[lunar_year]
+    # 计算
+    base_year = 2024
+    base_zodiac = 4  # 龙
+    return (base_zodiac + (lunar_year - base_year)) % 12
+
+
+def zodiac_to_numbers(zodiac_idx: int, lunar_year: int) -> List[int]:
+    """将生肖转换为当年对应的号码列表"""
+    year_zodiac_idx = get_hk6_year_zodiac_idx(lunar_year)
+    numbers = []
+    for num in range(1, 50):
+        num_offset = (num - 1) % 12
+        num_zodiac_idx = (year_zodiac_idx - num_offset + 12) % 12
+        if num_zodiac_idx == zodiac_idx:
+            numbers.append(num)
+    return numbers
+
+
+def get_wave_color(num: int) -> str:
+    """获取号码的波色"""
+    if num in HK6_WAVE_RED:
+        return "红波"
+    elif num in HK6_WAVE_BLUE:
+        return "蓝波"
+    else:
+        return "绿波"
+
+
 
 def get_shichen(hour: int) -> str:
     """根据小时获取时辰"""
@@ -591,3 +699,264 @@ class MetaphysicalService:
     
     def predict_dlt(self, draw_time: datetime = None, num_sets: int = 5) -> Dict:
         return self.predict("dlt", draw_time=draw_time, num_sets=num_sets)
+    
+    # ==================== 六合彩专用方法 ==================== #
+    
+    def method_zodiac_prediction(self, draw_time: datetime) -> Dict:
+        """六合彩生肖预测法 - 基于开奖日地支推算吉利生肖"""
+        day_gan, day_zhi = calculate_ganzhi_day(draw_time)
+        lunar_year = get_hk6_lunar_year(draw_time)
+        year_zodiac_idx = get_hk6_year_zodiac_idx(lunar_year)
+        
+        # 当日地支对应的生肖索引 (太岁)
+        taisui_idx = DIZHI_ZODIAC_IDX[day_zhi]
+        taisui_zodiac = HK6_ZODIACS[taisui_idx]
+        
+        # 六合贵人
+        liuhe_zhi = LIUHE.get(day_zhi, day_zhi)
+        liuhe_idx = DIZHI_ZODIAC_IDX[liuhe_zhi]
+        liuhe_zodiac = HK6_ZODIACS[liuhe_idx]
+        
+        # 三合贵人
+        sanhe_zhis = SANHE.get(day_zhi, [])
+        sanhe_zodiacs = [HK6_ZODIACS[DIZHI_ZODIAC_IDX[z]] for z in sanhe_zhis]
+        
+        # 相冲生肖 (回避)
+        chong_zhi = DIZHI_CHONG.get(day_zhi, "")
+        chong_idx = DIZHI_ZODIAC_IDX.get(chong_zhi, -1)
+        chong_zodiac = HK6_ZODIACS[chong_idx] if chong_idx >= 0 else ""
+        
+        # 转换为号码
+        hot_numbers = []  # 六合号码 (最吉)
+        hot_numbers.extend(zodiac_to_numbers(liuhe_idx, lunar_year))
+        
+        warm_numbers = []  # 三合号码
+        for z in sanhe_zhis:
+            idx = DIZHI_ZODIAC_IDX[z]
+            warm_numbers.extend(zodiac_to_numbers(idx, lunar_year))
+        
+        cold_numbers = []  # 相冲号码 (回避)
+        if chong_idx >= 0:
+            cold_numbers = zodiac_to_numbers(chong_idx, lunar_year)
+        
+        return {
+            "method": "zodiac_prediction",
+            "name": "生肖预测法",
+            "description": f"开奖日{day_gan}{day_zhi},太岁{taisui_zodiac}",
+            "draw_ganzhi": f"{day_gan}{day_zhi}",
+            "lunar_year": lunar_year,
+            "year_zodiac": HK6_ZODIACS[year_zodiac_idx],
+            "taisui_zodiac": taisui_zodiac,
+            "liuhe_zodiac": liuhe_zodiac,
+            "sanhe_zodiacs": sanhe_zodiacs,
+            "chong_zodiac": chong_zodiac,
+            "hot_numbers": sorted(list(set(hot_numbers))),
+            "warm_numbers": sorted(list(set(warm_numbers))),
+            "cold_numbers": cold_numbers,
+            "explanation": f"六合{liuhe_zodiac}大吉,三合{'/'.join(sanhe_zodiacs)}次吉" + (f",{chong_zodiac}相冲宜避" if chong_zodiac else "")
+        }
+    
+    def method_wave_wuxing(self, draw_time: datetime) -> Dict:
+        """六合彩波色五行法 - 基于五行旺衰推荐波色"""
+        day_gan, day_zhi = calculate_ganzhi_day(draw_time)
+        hour_gan, hour_zhi = calculate_ganzhi_hour(day_gan, draw_time.hour)
+        
+        wuxing_scores = analyze_wuxing_strength(day_gan, day_zhi, hour_gan, hour_zhi)
+        sorted_wx = sorted(wuxing_scores.items(), key=lambda x: -x[1])
+        
+        # 波色推荐
+        wave_scores = {
+            "红波": wuxing_scores["火"] + wuxing_scores["土"] * 0.5,  # 火旺利红
+            "蓝波": wuxing_scores["水"] + wuxing_scores["金"] * 0.5,  # 水旺利蓝
+            "绿波": wuxing_scores["木"] + wuxing_scores["水"] * 0.5,  # 木旺利绿
+        }
+        sorted_waves = sorted(wave_scores.items(), key=lambda x: -x[1])
+        
+        hot_wave = sorted_waves[0][0]
+        warm_wave = sorted_waves[1][0]
+        cold_wave = sorted_waves[2][0]
+        
+        # 获取各波色号码
+        wave_numbers = {
+            "红波": HK6_WAVE_RED.copy(),
+            "蓝波": HK6_WAVE_BLUE.copy(),
+            "绿波": HK6_WAVE_GREEN.copy(),
+        }
+        
+        return {
+            "method": "wave_wuxing",
+            "name": "波色五行法",
+            "description": f"五行旺衰分析 - {hot_wave}最旺",
+            "bazi": f"{day_gan}{day_zhi}日{hour_gan}{hour_zhi}时",
+            "wuxing_scores": wuxing_scores,
+            "wave_scores": wave_scores,
+            "hot_wave": hot_wave,
+            "warm_wave": warm_wave,
+            "cold_wave": cold_wave,
+            "hot_numbers": wave_numbers[hot_wave],
+            "warm_numbers": wave_numbers[warm_wave],
+            "cold_numbers": wave_numbers[cold_wave],
+            "explanation": f"今日{sorted_wx[0][0]}旺{sorted_wx[-1][0]}衰,{hot_wave}为首选"
+        }
+    
+    def predict_hk6(
+        self,
+        draw_time: datetime = None,
+        num_sets: int = 5,
+        methods: List[str] = None,
+        birth_date: datetime = None,
+        meihua_seed: int = None
+    ) -> Dict:
+        """六合彩综合预测"""
+        if draw_time is None:
+            # 六合彩开奖时间：周二、四、六、日 21:30
+            now = datetime.now()
+            hk6_weekdays = [1, 3, 5, 6]  # 周二、四、六、日
+            for i in range(14):
+                check_date = now + timedelta(days=i)
+                if check_date.weekday() in hk6_weekdays:
+                    draw_time = check_date.replace(hour=21, minute=30, second=0, microsecond=0)
+                    if draw_time > now:
+                        break
+        
+        lunar_year = get_hk6_lunar_year(draw_time)
+        
+        if methods is None:
+            methods = ["zodiac_prediction", "wave_wuxing", "bazi_wuxing", "meihua", "jiazi_cycle"]
+        
+        results = {
+            "lottery_type": "hk6",
+            "draw_time": draw_time.strftime("%Y-%m-%d %H:%M"),
+            "lunar_year": lunar_year,
+            "year_zodiac": HK6_ZODIACS[get_hk6_year_zodiac_idx(lunar_year)],
+            "methods": {},
+            "combined_hot": [],
+            "combined_warm": [],
+            "recommended_zodiacs": [],
+            "recommended_waves": [],
+            "recommended_sets": []
+        }
+        
+        hot_pool = set()
+        warm_pool = set()
+        
+        # 生肖预测
+        if "zodiac_prediction" in methods:
+            r = self.method_zodiac_prediction(draw_time)
+            results["methods"]["zodiac_prediction"] = r
+            hot_pool.update(r["hot_numbers"])
+            warm_pool.update(r["warm_numbers"])
+            results["recommended_zodiacs"] = [r["liuhe_zodiac"]] + r["sanhe_zodiacs"]
+        
+        # 波色五行
+        if "wave_wuxing" in methods:
+            r = self.method_wave_wuxing(draw_time)
+            results["methods"]["wave_wuxing"] = r
+            hot_pool.update(r["hot_numbers"][:8])  # 取部分热门波色号
+            warm_pool.update(r["warm_numbers"][:8])
+            results["recommended_waves"] = [r["hot_wave"], r["warm_wave"]]
+        
+        # 八字五行 (扩展到49)
+        if "bazi_wuxing" in methods:
+            r = self.method_bazi_wuxing(draw_time, red_max=49, blue_max=49)
+            results["methods"]["bazi_wuxing"] = r
+            hot_pool.update(r["hot_numbers"])
+            warm_pool.update(r["warm_numbers"])
+        
+        # 梅花易数
+        if "meihua" in methods:
+            r = self.method_meihua(meihua_seed)
+            # 扩展到49号
+            hot_tails = list(set(HETU_WUXING[r["lower"]["wuxing"]] + HETU_WUXING[r["upper"]["wuxing"]]))
+            meihua_nums = expand_numbers_by_tail(hot_tails, 49)
+            r["hot_numbers"] = meihua_nums
+            results["methods"]["meihua"] = r
+            warm_pool.update(meihua_nums)
+        
+        # 六十甲子
+        if "jiazi_cycle" in methods:
+            day_gan, day_zhi = calculate_ganzhi_day(draw_time)
+            gan_wx = TIANGAN_WUXING[day_gan]
+            zhi_wx = DIZHI_WUXING[day_zhi]
+            cycle_tails = list(set(HETU_WUXING[gan_wx] + HETU_WUXING[zhi_wx]))
+            cycle_numbers = expand_numbers_by_tail(cycle_tails, 49)
+            results["methods"]["jiazi_cycle"] = {
+                "method": "jiazi_cycle",
+                "name": "六十甲子周期法",
+                "ganzhi": f"{day_gan}{day_zhi}",
+                "cycle_numbers": cycle_numbers
+            }
+            warm_pool.update(cycle_numbers)
+        
+        # 汇总
+        results["combined_hot"] = sorted(list(hot_pool))
+        results["combined_warm"] = sorted(list(warm_pool - hot_pool))
+        
+        # 生成推荐号码组
+        results["recommended_sets"] = self._generate_hk6_sets(
+            list(hot_pool), list(warm_pool), num_sets, lunar_year
+        )
+        
+        return results
+    
+    def _generate_hk6_sets(
+        self,
+        hot: List[int],
+        warm: List[int],
+        num_sets: int,
+        lunar_year: int
+    ) -> List[Dict]:
+        """生成六合彩推荐号码组"""
+        sets = []
+        used = set()
+        
+        for _ in range(num_sets * 3):
+            if len(sets) >= num_sets:
+                break
+            
+            selected = []
+            
+            # 热门选3-4个
+            hot_avail = [n for n in hot if 1 <= n <= 49]
+            hot_pick = min(random.choice([3, 4]), len(hot_avail))
+            if hot_pick > 0:
+                selected.extend(random.sample(hot_avail, hot_pick))
+            
+            # 温和补充到5个
+            remaining = 6 - len(selected)
+            warm_avail = [n for n in warm if n not in selected and 1 <= n <= 49]
+            if warm_avail and remaining > 0:
+                add = min(remaining, 2, len(warm_avail))
+                selected.extend(random.sample(warm_avail, add))
+            
+            # 补足到6个
+            remaining = 6 - len(selected)
+            if remaining > 0:
+                all_avail = [n for n in range(1, 50) if n not in selected]
+                selected.extend(random.sample(all_avail, remaining))
+            
+            selected = sorted(selected[:6])
+            
+            # 特码：从热门或温和中选
+            special_pool = [n for n in (hot + warm) if n not in selected and 1 <= n <= 49]
+            if not special_pool:
+                special_pool = [n for n in range(1, 50) if n not in selected]
+            special = random.choice(special_pool)
+            
+            combo = tuple(selected + [special])
+            if combo not in used:
+                used.add(combo)
+                
+                # 计算生肖和波色
+                year_zodiac_idx = get_hk6_year_zodiac_idx(lunar_year)
+                special_offset = (special - 1) % 12
+                special_zodiac_idx = (year_zodiac_idx - special_offset + 12) % 12
+                
+                sets.append({
+                    "numbers": selected,
+                    "special": special,
+                    "special_zodiac": HK6_ZODIACS[special_zodiac_idx],
+                    "special_wave": get_wave_color(special)
+                })
+        
+        return sets[:num_sets]

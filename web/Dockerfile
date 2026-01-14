@@ -39,6 +39,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+# API proxy target for runtime rewrites (Docker internal network)
+ENV API_PROXY_TARGET=http://backend:8000
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs

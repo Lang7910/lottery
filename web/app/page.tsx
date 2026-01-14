@@ -8,13 +8,16 @@ import { DLTPanel } from "@/components/DLTPanel";
 import { HK6Panel } from "@/components/HK6Panel";
 import { SSQBasicAnalysis } from "@/components/SSQBasicAnalysis";
 import { DLTBasicAnalysis } from "@/components/DLTBasicAnalysis";
+import { HK6BasicAnalysis } from "@/components/HK6BasicAnalysis";
 import { SSQTrendAnalysis } from "@/components/SSQTrendAnalysis";
 import { DLTTrendAnalysis } from "@/components/DLTTrendAnalysis";
+import { HK6TrendAnalysis } from "@/components/HK6TrendAnalysis";
 import { SSQPrediction } from "@/components/SSQPrediction";
 import { DLTPrediction } from "@/components/DLTPrediction";
 import { SSQKillAnalysis } from "@/components/SSQKillAnalysis";
 import { DLTKillAnalysis } from "@/components/DLTKillAnalysis";
 import { MetaphysicalPrediction } from "@/components/MetaphysicalPrediction";
+import { HK6MetaphysicalPrediction } from "@/components/HK6MetaphysicalPrediction";
 import { ComprehensiveRecommendation } from "@/components/ComprehensiveRecommendation";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserAuthButton } from "@/components/UserAuthButton";
@@ -70,12 +73,22 @@ function HomeContent() {
       if (lotteryType === "hk6") return <HK6Panel />;
     }
 
-    // HK6 暂不支持分析和预测功能
-    if (lotteryType === "hk6") {
+    // HK6 分析
+    if (lotteryType === "hk6" && mainSection === "analysis") {
+      if (analysisTab === "basic") return <HK6BasicAnalysis />;
+      if (analysisTab === "trend") return <HK6TrendAnalysis />;
+    }
+
+    // HK6 预测功能
+    if (lotteryType === "hk6" && mainSection === "prediction") {
+      if (predictionTab === "metaphysical") {
+        return <HK6MetaphysicalPrediction />;
+      }
+      // 其他预测功能暂不支持
       return (
         <div className="glass-card p-8 text-center">
-          <h2 className="text-xl font-semibold text-foreground mb-2">六合彩分析功能开发中</h2>
-          <p className="text-muted-foreground">请先查看开奖结果页面</p>
+          <h2 className="text-xl font-semibold text-foreground mb-2">六合彩此预测功能开发中</h2>
+          <p className="text-muted-foreground">请使用玄学预测功能</p>
         </div>
       );
     }

@@ -6,12 +6,15 @@ import { useAuth } from "@clerk/nextjs";
 import { cn, API_BASE_URL } from "@/lib/utils";
 
 interface AddToWatchlistProps {
-    lotteryType: "ssq" | "dlt";
+    lotteryType: "ssq" | "dlt" | "hk6";
     numbers: {
         red?: number[];
         blue?: number | number[];
         front?: number[];
         back?: number[];
+        // HK6 specific
+        numbers?: number[];  // 正码
+        special?: number;    // 特码
     };
     source?: string;
     targetPeriod?: number;  // 目标期号
@@ -24,6 +27,10 @@ function getNumbersKey(lotteryType: string, numbers: any): string {
         const red = (numbers.red || []).sort((a: number, b: number) => a - b).join(",");
         const blue = numbers.blue;
         return `ssq:${red}+${blue}`;
+    } else if (lotteryType === "hk6") {
+        const nums = (numbers.numbers || []).sort((a: number, b: number) => a - b).join(",");
+        const special = numbers.special;
+        return `hk6:${nums}+${special}`;
     } else {
         const front = (numbers.front || []).sort((a: number, b: number) => a - b).join(",");
         const back = (numbers.back || []).sort((a: number, b: number) => a - b).join(",");

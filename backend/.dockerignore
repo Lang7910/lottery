@@ -15,3 +15,9 @@ ENV
 htmlcov
 .pytest_cache
 *.egg-info
+# Database files - should not be in image
+*.db
+lottery.db
+# Environment files
+.env
+.env.*

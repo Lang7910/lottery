@@ -26,7 +26,7 @@ interface Bet {
 }
 
 interface BetHistoryProps {
-    lotteryType?: "ssq" | "dlt";
+    lotteryType?: "ssq" | "dlt" | "hk6";
 }
 
 export function BetHistory({ lotteryType = "ssq" }: BetHistoryProps) {

@@ -7,9 +7,16 @@ services:
     ports:
       - "8000:8000"
     volumes:
+      # 挂载数据库文件实现数据持久化
       - ./backend/lottery.db:/app/lottery.db
     environment:
       - DATABASE_URL=sqlite:///./lottery.db
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
   frontend:
@@ -17,16 +24,26 @@ services:
       context: ./web
       dockerfile: Dockerfile
       args:
-        # 生产环境使用空字符串，让前端使用相对路径
+        # 生产环境使用空字符串，让前端通过 rewrites 代理请求
         - NEXT_PUBLIC_API_URL=
-        # Clerk 认证 (从 .env 文件读取或直接设置)
+        # Clerk 认证 (构建时需要)
         - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
     container_name: lottery-frontend
     ports:
       - "3721:3000"
     environment:
+      # 运行时环境变量
       - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
       - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
+      # API 代理目标 (Docker 内部网络)
+      - API_PROXY_TARGET=http://backend:8000
     depends_on:
-      - backend
+      backend:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped

@@ -18,6 +18,9 @@ interface WatchlistItem {
         blue?: number | number[];
         front?: number[];
         back?: number[];
+        // HK6 specific
+        numbers?: number[];
+        special?: number;
     };
     source: string;
     note: string | null;
@@ -25,7 +28,7 @@ interface WatchlistItem {
 }
 
 interface WatchlistManagerProps {
-    lotteryType?: "ssq" | "dlt";
+    lotteryType?: "ssq" | "dlt" | "hk6";
     onBatchBet?: (items: Array<{ numbers: any; multiple: number }>, targetPeriod: number) => void;
     onSelectForBet?: (item: WatchlistItem) => void;
 }
@@ -60,11 +63,21 @@ export function WatchlistManager({ lotteryType = "ssq", onBatchBet, onSelectForB
     useEffect(() => {
         const fetchLatestPeriod = async () => {
             try {
-                const res = await fetch(`${API_BASE_URL}/api/${lotteryType}?limit=1`);
+                // HK6 uses /api/hk6 endpoint
+                const endpoint = lotteryType === "hk6" ? "hk6" : lotteryType;
+                const res = await fetch(`${API_BASE_URL}/api/${endpoint}?limit=1`);
                 if (res.ok) {
                     const data = await res.json();
                     if (data.items && data.items.length > 0) {
-                        setTargetPeriod(parseInt(data.items[0].period) + 1);
+                        const item = data.items[0];
+                        if (lotteryType === "hk6") {
+                            // HK6: year * 1000 + no + 1
+                            const year = parseInt(item.year) || 26;
+                            const no = parseInt(item.no) || 0;
+                            setTargetPeriod(year * 1000 + no + 1);
+                        } else {
+                            setTargetPeriod(parseInt(item.period) + 1);
+                        }
                     }
                 }
             } catch (err) {
@@ -426,22 +439,51 @@ export function WatchlistManager({ lotteryType = "ssq", onBatchBet, onSelectForB
 
                     {/* 号码 */}
                     <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
-                        {(item.numbers.red || item.numbers.front || []).map((n, i) => (
-                            <span key={i} className="ball ball-red text-xs" style={{ width: 26, height: 26 }}>
-                                {n.toString().padStart(2, "0")}
-                            </span>
-                        ))}
-                        <span className="text-muted-foreground text-sm">+</span>
-                        {lotteryType === "ssq" ? (
-                            <span className="ball ball-blue text-xs" style={{ width: 26, height: 26 }}>
-                                {(item.numbers.blue as number)?.toString().padStart(2, "0")}
-                            </span>
+                        {lotteryType === "hk6" ? (
+                            <>
+                                {(item.numbers.numbers || []).map((n, i) => {
+                                    const isRed = [1, 2, 7, 8, 12, 13, 18, 19, 23, 24, 29, 30, 34, 35, 40, 45, 46].includes(n);
+                                    const isBlue = [3, 4, 9, 10, 14, 15, 20, 25, 26, 31, 36, 37, 41, 42, 47, 48].includes(n);
+                                    const bgClass = isRed ? "ball-red" : isBlue ? "ball-blue" : "ball-green";
+                                    return (
+                                        <span key={i} className={cn("ball text-xs", bgClass)} style={{ width: 26, height: 26 }}>
+                                            {n.toString().padStart(2, "0")}
+                                        </span>
+                                    );
+                                })}
+                                <span className="text-muted-foreground text-sm">+</span>
+                                {item.numbers.special && (() => {
+                                    const n = item.numbers.special;
+                                    const isRed = [1, 2, 7, 8, 12, 13, 18, 19, 23, 24, 29, 30, 34, 35, 40, 45, 46].includes(n);
+                                    const isBlue = [3, 4, 9, 10, 14, 15, 20, 25, 26, 31, 36, 37, 41, 42, 47, 48].includes(n);
+                                    const bgClass = isRed ? "ball-red" : isBlue ? "ball-blue" : "ball-green";
+                                    return (
+                                        <span className={cn("ball text-xs ring-2 ring-amber-400", bgClass)} style={{ width: 26, height: 26 }}>
+                                            {n.toString().padStart(2, "0")}
+                                        </span>
+                                    );
+                                })()}
+                            </>
                         ) : (
-                            (item.numbers.back as number[] || []).map((n, i) => (
-                                <span key={i} className="ball ball-blue text-xs" style={{ width: 26, height: 26 }}>
-                                    {n.toString().padStart(2, "0")}
-                                </span>
-                            ))
+                            <>
+                                {(item.numbers.red || item.numbers.front || []).map((n, i) => (
+                                    <span key={i} className="ball ball-red text-xs" style={{ width: 26, height: 26 }}>
+                                        {n.toString().padStart(2, "0")}
+                                    </span>
+                                ))}
+                                <span className="text-muted-foreground text-sm">+</span>
+                                {lotteryType === "ssq" ? (
+                                    <span className="ball ball-blue text-xs" style={{ width: 26, height: 26 }}>
+                                        {(item.numbers.blue as number)?.toString().padStart(2, "0")}
+                                    </span>
+                                ) : (
+                                    (item.numbers.back as number[] || []).map((n, i) => (
+                                        <span key={i} className="ball ball-blue text-xs" style={{ width: 26, height: 26 }}>
+                                            {n.toString().padStart(2, "0")}
+                                        </span>
+                                    ))
+                                )}
+                            </>
                         )}
                         <span className="text-xs text-muted-foreground ml-1">
                             {formatSource(item.source)}
