@@ -11,6 +11,12 @@ services:
       - ./backend/lottery.db:/app/lottery.db
     environment:
       - DATABASE_URL=sqlite:///./lottery.db
+      # 大乐透抓取请求头可配置（用于绕过部分站点风控）
+      - DLT_USER_AGENT=${DLT_USER_AGENT}
+      - DLT_COOKIE=${DLT_COOKIE}
+      - DLT_REFERER=${DLT_REFERER}
+      - DLT_ORIGIN=${DLT_ORIGIN}
+      - DLT_ACCEPT_LANGUAGE=${DLT_ACCEPT_LANGUAGE}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s

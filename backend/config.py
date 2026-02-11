@@ -29,7 +29,15 @@ SSQ_CONFIG = {
 DLT_CONFIG = {
     "url": "https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry",
     "headers": {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+        "User-Agent": os.getenv(
+            "DLT_USER_AGENT",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
+        ),
+        "Cookie": os.getenv("DLT_COOKIE", ""),
+        "Referer": os.getenv("DLT_REFERER", "https://www.lottery.gov.cn/"),
+        "Origin": os.getenv("DLT_ORIGIN", "https://www.lottery.gov.cn"),
+        "Accept-Language": os.getenv("DLT_ACCEPT_LANGUAGE", "zh-CN,zh;q=0.9,en;q=0.8"),
     },
     "default_params": {
         "gameNo": "85",

@@ -26,7 +26,7 @@ class DLTScraper(DataSource):
     
     def __init__(self):
         self.url = DLT_CONFIG["url"]
-        self.headers = {
+        base_headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
@@ -38,6 +38,11 @@ class DLTScraper(DataSource):
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "cross-site",
         }
+        config_headers = DLT_CONFIG.get("headers", {})
+        for key, value in config_headers.items():
+            if value is not None and str(value).strip() != "":
+                base_headers[key] = str(value).strip()
+        self.headers = base_headers
         self.default_params = DLT_CONFIG["default_params"].copy()
 
     @staticmethod
