@@ -210,11 +210,13 @@ class DLTScraper(DataSource):
         all_results = []
         total_pages = math.ceil(count / self.PAGE_SIZE)
         loop = asyncio.get_event_loop()
+        # 备用源在小于 pageSize 时偶发空结果，按至少一页去请求再裁剪
+        effective_issue_count = max(count, self.PAGE_SIZE)
 
         for page_no in range(1, total_pages + 1):
             params = {
                 **self.fallback_default_params,
-                "issueCount": str(count),
+                "issueCount": str(effective_issue_count),
                 "pageNum": str(page_no),
                 "pageSize": str(self.PAGE_SIZE),
                 "callback": f"jQuery{int(time.time() * 1000)}_{page_no}",
@@ -349,28 +351,77 @@ class DLTScraper(DataSource):
 
     def _sync_fetch_page_zhcw(self, params: dict, page_no: int) -> Dict[str, Any]:
         """从中彩网备用源同步获取单页数据（JSON/JSONP）"""
+        variants = []
+        # 变体1: 原始参数（JSONP）
+        variants.append(params.copy())
+        # 变体2: 去掉 callback/tt/_，请求纯 JSON
+        pure_json = params.copy()
+        pure_json.pop("callback", None)
+        pure_json.pop("tt", None)
+        pure_json.pop("_", None)
+        variants.append(pure_json)
+
+        # 去重
+        dedup = []
+        seen = set()
+        for p in variants:
+            key = tuple(sorted((k, str(v)) for k, v in p.items()))
+            if key not in seen:
+                seen.add(key)
+                dedup.append(p)
+
         try:
-            response = requests.get(
-                self.fallback_url,
-                headers=self.fallback_headers,
-                params=params,
-                timeout=15
-            )
-            text = response.text or ""
-            data = self._parse_json_or_jsonp(text)
-            if not data or "data" not in data:
-                logger.warning(
-                    "ZHCW API 第 %s 页响应格式异常: status=%s, params=%s, body=%s",
-                    page_no,
-                    response.status_code,
-                    params,
-                    text[:280]
-                )
-                return {}
-            return data
+            with requests.Session() as session:
+                session.headers.update(self.fallback_headers)
+                # 先访问首页，拿到可能需要的会话 cookie
+                try:
+                    session.get("https://jc.zhcw.com/", timeout=10)
+                except Exception:
+                    pass
+
+                for attempt, p in enumerate(dedup, start=1):
+                    try:
+                        response = session.get(
+                            self.fallback_url,
+                            params=p,
+                            timeout=15
+                        )
+                        text = response.text or ""
+                        if not text and response.content:
+                            # 某些情况下 text 为空，兜底从 bytes 解码
+                            text = response.content.decode(
+                                response.encoding or "utf-8",
+                                errors="ignore"
+                            )
+
+                        data = self._parse_json_or_jsonp(text)
+                        if data and isinstance(data.get("data"), list):
+                            return data
+
+                        logger.warning(
+                            "ZHCW API 第 %s 页响应不可用: status=%s, attempt=%s, "
+                            "content_type=%s, len=%s, params=%s, body=%s",
+                            page_no,
+                            response.status_code,
+                            attempt,
+                            response.headers.get("Content-Type", ""),
+                            len(text),
+                            p,
+                            text[:280]
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "ZHCW API 第 %s 页请求失败: attempt=%s, params=%s, err=%s",
+                            page_no,
+                            attempt,
+                            p,
+                            e
+                        )
         except Exception as e:
             logger.warning("获取中彩网大乐透第 %s 页失败: %s", page_no, e)
             return {}
+
+        return {}
     
     def _parse_results(self, json_data: dict) -> List[Dict[str, Any]]:
         """解析响应数据"""
