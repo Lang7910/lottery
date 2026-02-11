@@ -206,14 +206,17 @@ def create_bet(
     """创建投注"""
     service = BettingService(db)
     user = service.get_or_create_user(clerk_id)
-    bet = service.create_bet(
-        user_id=user.id,
-        lottery_type=data.lottery_type,
-        bet_type=data.bet_type,
-        target_period=data.target_period,
-        numbers=data.numbers,
-        multiple=data.multiple
-    )
+    try:
+        bet = service.create_bet(
+            user_id=user.id,
+            lottery_type=data.lottery_type,
+            bet_type=data.bet_type,
+            target_period=data.target_period,
+            numbers=data.numbers,
+            multiple=data.multiple
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {
         "id": bet.id,
         "bet_count": bet.bet_count,
@@ -278,6 +281,7 @@ class CheckBetsRequest(BaseModel):
 @router.post("/check")
 def check_pending_bets(
     data: CheckBetsRequest,
+    clerk_id: str = Depends(get_clerk_id),
     db: Session = Depends(get_db)
 ):
     """
@@ -285,11 +289,19 @@ def check_pending_bets(
     需要传入开奖结果进行对比
     """
     service = BettingService(db)
-    checked_bets = service.check_all_pending_bets(
-        lottery_type=data.lottery_type,
-        period=data.period,
-        draw_result=data.draw_result
-    )
+    if data.lottery_type not in {"ssq", "dlt"}:
+        raise HTTPException(status_code=400, detail="目前仅支持双色球和大乐透核奖")
+
+    user = service.get_or_create_user(clerk_id)
+    try:
+        checked_bets = service.check_all_pending_bets(
+            lottery_type=data.lottery_type,
+            period=data.period,
+            draw_result=data.draw_result,
+            user_id=user.id
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {
         "checked_count": len(checked_bets),
         "results": [

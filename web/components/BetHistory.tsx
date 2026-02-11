@@ -69,6 +69,10 @@ export function BetHistory({ lotteryType = "ssq" }: BetHistoryProps) {
     const [checking, setChecking] = useState(false);
     const checkPendingBets = async () => {
         if (!userId) return;
+        if (lotteryType === "hk6") {
+            alert("六合彩暂不支持自动核奖");
+            return;
+        }
 
         // 获取待开奖的期号列表
         const pendingBets = bets.filter(b => b.status === "pending");
@@ -79,54 +83,50 @@ export function BetHistory({ lotteryType = "ssq" }: BetHistoryProps) {
 
         setChecking(true);
         try {
-            // 获取最新开奖数据
-            const lotteryRes = await fetch(`${API_BASE_URL}/api/${lotteryType}/latest`);
-            if (!lotteryRes.ok) {
-                alert("获取开奖数据失败");
-                return;
-            }
-            const latestDraw = await lotteryRes.json();
-            if (!latestDraw) {
-                alert("暂无开奖数据");
-                return;
-            }
-
-            // 构建开奖结果格式
-            let drawResult: any;
-            if (lotteryType === "ssq") {
-                drawResult = { red: latestDraw.red, blue: latestDraw.blue };
-            } else if (lotteryType === "hk6") {
-                drawResult = { numbers: latestDraw.numbers, special: latestDraw.special };
-            } else {
-                drawResult = { front: latestDraw.front, back: latestDraw.back };
-            }
-
-            // 对每个待开奖期号调用检查API
+            // 对每个待开奖期号调用检查API（按期号拉取当期开奖号码，避免误用最新一期）
             const periodsToCheck = [...new Set(pendingBets.map(b => b.target_period))];
             let checkedCount = 0;
+            let drawablePeriods = 0;
 
             for (const period of periodsToCheck) {
-                // 只检查已开奖的期号
-                if (period <= latestDraw.period) {
-                    const checkRes = await fetch(`${API_BASE_URL}/api/betting/check`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            lottery_type: lotteryType,
-                            period: period,
-                            draw_result: drawResult
-                        })
-                    });
-                    if (checkRes.ok) {
-                        const result = await checkRes.json();
-                        checkedCount += result.checked_count;
-                    }
+                const drawRes = await fetch(`${API_BASE_URL}/api/${lotteryType}/${period}`);
+                if (!drawRes.ok) {
+                    continue;
+                }
+
+                const drawData = await drawRes.json();
+                if (!drawData || drawData.error) {
+                    continue;
+                }
+                drawablePeriods += 1;
+
+                const drawResult = lotteryType === "ssq"
+                    ? { red: drawData.red, blue: drawData.blue }
+                    : { front: drawData.front, back: drawData.back };
+
+                const checkRes = await fetch(`${API_BASE_URL}/api/betting/check`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Clerk-User-Id": userId,
+                    },
+                    body: JSON.stringify({
+                        lottery_type: lotteryType,
+                        period,
+                        draw_result: drawResult
+                    })
+                });
+                if (checkRes.ok) {
+                    const result = await checkRes.json();
+                    checkedCount += result.checked_count;
                 }
             }
 
             if (checkedCount > 0) {
                 alert(`已检查 ${checkedCount} 条投注记录`);
                 await loadBets(); // 刷新列表
+            } else if (drawablePeriods === 0) {
+                alert("相关期号暂无开奖数据");
             } else {
                 alert("没有需要检查的投注（可能还未开奖）");
             }

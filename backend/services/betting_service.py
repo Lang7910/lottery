@@ -1,7 +1,7 @@
 """
 投注服务 - 中奖计算、注数计算等
 """
-from typing import List, Dict, Tuple, Optional
+from typing import List, Tuple, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
 from models.bet import Bet, Watchlist, SSQ_PRIZE_RULES, DLT_PRIZE_RULES, BetStatus
@@ -114,25 +114,34 @@ class BettingService:
         - 复式: C(red_count, 6) * C(blue_count, 1) (SSQ)
         - 胆拖: C(tuo_count, 6-dan_count) * blue_count
         """
-        if lottery_type == "ssq":
-            red_need = 6
-            blue_need = 1
-        else:  # dlt
-            red_need = 5
-            blue_need = 2
-        
         if bet_type == "single":
-            return 1
+            if lottery_type == "ssq":
+                red = numbers.get("red", [])
+                blue = numbers.get("blue")
+                if not isinstance(red, list) or len(red) != 6:
+                    return 0
+                # 单式蓝球允许 number 或仅 1 个元素的 list
+                if isinstance(blue, list):
+                    return 1 if len(blue) == 1 else 0
+                return 1 if blue is not None else 0
+            elif lottery_type == "dlt":
+                front = numbers.get("front", [])
+                back = numbers.get("back", [])
+                if not isinstance(front, list) or not isinstance(back, list):
+                    return 0
+                return 1 if len(front) == 5 and len(back) == 2 else 0
+            return 0
         
         elif bet_type == "multiple":
             if lottery_type == "ssq":
                 red_count = len(numbers.get("red", []))
                 blue_count = len(numbers.get("blue", [])) if isinstance(numbers.get("blue"), list) else 1
                 return self.calculate_combinations(red_count, 6) * self.calculate_combinations(blue_count, 1)
-            else:  # dlt
+            elif lottery_type == "dlt":
                 front_count = len(numbers.get("front", []))
                 back_count = len(numbers.get("back", []))
                 return self.calculate_combinations(front_count, 5) * self.calculate_combinations(back_count, 2)
+            return 0
         
         elif bet_type == "dantuo":
             if lottery_type == "ssq":
@@ -140,7 +149,7 @@ class BettingService:
                 tuo_count = len(numbers.get("tuo_red", []))
                 blue_count = len(numbers.get("blue", [])) if isinstance(numbers.get("blue"), list) else 1
                 return self.calculate_combinations(tuo_count, 6 - dan_count) * blue_count
-            else:  # dlt
+            elif lottery_type == "dlt":
                 dan_front = len(numbers.get("dan_front", []))
                 tuo_front = len(numbers.get("tuo_front", []))
                 dan_back = len(numbers.get("dan_back", []))
@@ -148,6 +157,7 @@ class BettingService:
                 front_comb = self.calculate_combinations(tuo_front, 5 - dan_front)
                 back_comb = self.calculate_combinations(tuo_back, 2 - dan_back)
                 return front_comb * back_comb
+            return 0
         
         return 0
     
@@ -168,6 +178,10 @@ class BettingService:
     ) -> Bet:
         """创建投注记录"""
         bet_count = self.calculate_bet_count(lottery_type, bet_type, numbers)
+        if bet_count <= 0:
+            raise ValueError("号码不符合投注要求")
+        if multiple < 1:
+            raise ValueError("倍数必须大于等于1")
         amount = self.calculate_amount(bet_count, multiple)
         
         bet = Bet(
@@ -201,13 +215,16 @@ class BettingService:
             query = query.filter(Bet.status == status)
         return query.order_by(Bet.created_at.desc()).limit(limit).all()
     
-    def get_pending_bets(self, lottery_type: str, period: int) -> List[Bet]:
+    def get_pending_bets(self, lottery_type: str, period: int, user_id: Optional[int] = None) -> List[Bet]:
         """获取指定期号的待开奖投注"""
-        return self.db.query(Bet).filter(
+        query = self.db.query(Bet).filter(
             Bet.lottery_type == lottery_type,
             Bet.target_period == period,
             Bet.status == BetStatus.PENDING.value
-        ).all()
+        )
+        if user_id is not None:
+            query = query.filter(Bet.user_id == user_id)
+        return query.all()
     
     # ==================== 中奖计算 ==================== #
     
@@ -276,7 +293,7 @@ class BettingService:
                         else:
                             bet.prize_amount = rule["prize"] * bet.multiple
                         break
-        else:  # dlt
+        elif bet.lottery_type == "dlt":
             prize_level, matched_front, matched_back = self.check_dlt_prize(bet.numbers, draw_result)
             bet.matched_red = matched_front
             bet.matched_blue = matched_back > 0
@@ -291,6 +308,8 @@ class BettingService:
                         else:
                             bet.prize_amount = rule["prize"] * bet.multiple
                         break
+        else:
+            raise ValueError(f"暂不支持 {bet.lottery_type} 的开奖核对")
         
         bet.status = BetStatus.CHECKED.value
         bet.checked_at = datetime.utcnow()
@@ -298,9 +317,15 @@ class BettingService:
         self.db.refresh(bet)
         return bet
     
-    def check_all_pending_bets(self, lottery_type: str, period: int, draw_result: dict) -> List[Bet]:
+    def check_all_pending_bets(
+        self,
+        lottery_type: str,
+        period: int,
+        draw_result: dict,
+        user_id: Optional[int] = None
+    ) -> List[Bet]:
         """检查所有待开奖投注"""
-        pending_bets = self.get_pending_bets(lottery_type, period)
+        pending_bets = self.get_pending_bets(lottery_type, period, user_id=user_id)
         checked = []
         for bet in pending_bets:
             checked.append(self.check_bet(bet, draw_result))
