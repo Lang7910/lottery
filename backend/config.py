@@ -36,6 +36,8 @@ DLT_CONFIG = {
         "provinceId": "0",
         "pageNo": "1",
         "pageSize": "30",
+        # 部分阶段接口需要 termLimits 才返回完整近期数据
+        "termLimits": "30",
         "isVerify": "1",
     }
 }

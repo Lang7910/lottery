@@ -27,7 +27,7 @@ class DLTService:
         # 先获取少量数据判断是否有新期
         data = await self.scraper.fetch_by_count(10)
         if not data:
-            return {"synced": 0, "message": "无法获取数据"}
+            return {"synced": 0, "message": "无法获取数据（可能是接口字段变更或网络异常）"}
         
         # 找出需要同步的期数
         new_data = [d for d in data if d["period"] > latest_period]

@@ -8,6 +8,7 @@ import requests
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import math
+import re
 
 from sources.base import DataSource
 from config import DLT_CONFIG
@@ -38,6 +39,37 @@ class DLTScraper(DataSource):
             "Sec-Fetch-Site": "cross-site",
         }
         self.default_params = DLT_CONFIG["default_params"].copy()
+
+    @staticmethod
+    def _first_non_empty(item: Dict[str, Any], keys: List[str], default: str = "") -> str:
+        for key in keys:
+            value = item.get(key)
+            if value is not None and str(value).strip() != "":
+                return str(value).strip()
+        return default
+
+    @staticmethod
+    def _extract_draw_numbers(raw: Any) -> List[int]:
+        """
+        兼容多种开奖号码格式:
+        - "04 05 10 23 31 07 12"
+        - "04 05 10 23 31 + 07 12"
+        - "04,05,10,23,31,07,12"
+        """
+        if raw is None:
+            return []
+        if isinstance(raw, list):
+            nums = []
+            for n in raw:
+                try:
+                    nums.append(int(n))
+                except (TypeError, ValueError):
+                    continue
+            return nums
+
+        text = str(raw)
+        # 直接提取所有连续数字，自动忽略 "+" 等分隔符
+        return [int(x) for x in re.findall(r"\d+", text)]
     
     async def fetch_by_count(self, count: int) -> List[Dict[str, Any]]:
         """按期数获取大乐透数据 - 通过多页获取超过100期"""
@@ -125,11 +157,17 @@ class DLTScraper(DataSource):
             )
             response.raise_for_status()
             data = response.json()
-            
-            if "value" not in data or "list" not in data.get("value", {}):
-                logger.warning(f"DLT API 第 {page_no} 页响应格式异常")
+
+            value = data.get("value", {})
+            if not isinstance(value, dict) or "list" not in value:
+                logger.warning(
+                    "DLT API 第 %s 页响应格式异常, keys=%s, body=%s",
+                    page_no,
+                    list(data.keys())[:10],
+                    str(data)[:300]
+                )
                 return {}
-            
+
             return data
         except Exception as e:
             logger.error(f"获取大乐透第 {page_no} 页数据失败: {e}")
@@ -141,12 +179,29 @@ class DLTScraper(DataSource):
         value = json_data.get("value", {})
         for item in value.get("list", []):
             try:
-                draw_result = item["lotteryDrawResult"].split()
-                front_area = list(map(int, draw_result[:5]))
-                back_area = list(map(int, draw_result[5:]))
-                
+                period = self._first_non_empty(
+                    item,
+                    ["lotteryDrawNum", "lotteryDrawNumDsp", "drawNum", "period"]
+                )
+                draw_raw = self._first_non_empty(
+                    item,
+                    ["lotteryDrawResult", "drawResult", "lotteryResult"]
+                )
+                draw_nums = self._extract_draw_numbers(draw_raw)
+                if len(draw_nums) < 7:
+                    logger.warning(
+                        "解析大乐透号码失败: period=%s, draw_raw=%s, item_keys=%s",
+                        period,
+                        draw_raw,
+                        list(item.keys())[:20]
+                    )
+                    continue
+
+                front_area = draw_nums[:5]
+                back_area = draw_nums[5:7]
+
                 results.append({
-                    "period": item["lotteryDrawNum"],
+                    "period": period,
                     "front1": front_area[0],
                     "front2": front_area[1],
                     "front3": front_area[2],
@@ -154,8 +209,14 @@ class DLTScraper(DataSource):
                     "front5": front_area[4],
                     "back1": back_area[0],
                     "back2": back_area[1],
-                    "sale_begin_time": item.get("lotterySaleBeginTime", ""),
-                    "sale_end_time": item.get("lotterySaleEndtime", ""),
+                    "sale_begin_time": self._first_non_empty(
+                        item,
+                        ["lotterySaleBeginTime", "saleBeginTime", "lotteryDrawTime"]
+                    ),
+                    "sale_end_time": self._first_non_empty(
+                        item,
+                        ["lotterySaleEndTime", "lotterySaleEndtime", "saleEndTime", "lotteryDrawTime"]
+                    ),
                 })
             except (KeyError, ValueError, IndexError) as e:
                 logger.error(f"解析大乐透数据失败: {e}")

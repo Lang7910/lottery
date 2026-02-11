@@ -45,6 +45,14 @@ export function DLTPanel() {
 
     const totalPages = Math.ceil(totalCount / pageSize);
 
+    const formatDrawTime = (item?: DLTResult) => {
+        if (!item) return "-";
+        const t = item.sale_end_time || item.sale_begin_time;
+        if (!t) return "-";
+        // 常见格式: "2026-02-09 21:00:00"
+        return t.replace("T", " ").slice(0, 19);
+    };
+
     const buildQueryParams = () => {
         const params = new URLSearchParams();
         params.set("limit", String(pageSize));
@@ -222,7 +230,10 @@ export function DLTPanel() {
             {data?.items?.[0] && page === 1 && (
                 <div className="glass-card p-6">
                     <div className="flex items-center justify-between mb-4">
-                        <span className="text-sm text-muted-foreground">最新一期</span>
+                        <div className="text-sm text-muted-foreground">
+                            最新一期
+                            <span className="ml-2">开奖时间: {formatDrawTime(data.items[0])}</span>
+                        </div>
                         <span className="text-sm text-muted-foreground">第 {data.items[0].period} 期</span>
                     </div>
                     <div className="flex items-center gap-3 flex-wrap">
@@ -258,18 +269,22 @@ export function DLTPanel() {
                         <thead className="bg-muted/50 sticky top-0">
                             <tr>
                                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">期号</th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">开奖时间</th>
                                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">开奖号码</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
                             {loading ? (
-                                <tr><td colSpan={2} className="px-4 py-8 text-center text-muted-foreground">加载中...</td></tr>
+                                <tr><td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">加载中...</td></tr>
                             ) : !data?.items?.length ? (
-                                <tr><td colSpan={2} className="px-4 py-8 text-center text-muted-foreground">暂无数据</td></tr>
+                                <tr><td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">暂无数据</td></tr>
                             ) : (
                                 data.items.map((item) => (
                                     <tr key={item.period} className="hover:bg-muted/30">
                                         <td className="px-4 py-3 font-medium">{formatPeriod(item.period)}</td>
+                                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                                            {formatDrawTime(item)}
+                                        </td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-1.5 flex-wrap">
                                                 {item.front.map((num, idx) => (
