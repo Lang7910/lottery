@@ -54,6 +54,7 @@ DLT_CONFIG = {
         "Referer": os.getenv("DLT_FALLBACK_REFERER", "https://jc.zhcw.com/kjxx/dlt/"),
         "Origin": os.getenv("DLT_FALLBACK_ORIGIN", "https://jc.zhcw.com"),
         "Accept-Language": os.getenv("DLT_ACCEPT_LANGUAGE", "zh-CN,zh;q=0.9,en;q=0.8"),
+        "X-Requested-With": os.getenv("DLT_FALLBACK_X_REQUESTED_WITH", "XMLHttpRequest"),
     },
     "default_params": {
         "gameNo": "85",

@@ -21,6 +21,7 @@ services:
       - DLT_FALLBACK_COOKIE=${DLT_FALLBACK_COOKIE}
       - DLT_FALLBACK_REFERER=${DLT_FALLBACK_REFERER}
       - DLT_FALLBACK_ORIGIN=${DLT_FALLBACK_ORIGIN}
+      - DLT_FALLBACK_X_REQUESTED_WITH=${DLT_FALLBACK_X_REQUESTED_WITH}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s

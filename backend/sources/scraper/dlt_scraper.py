@@ -50,10 +50,12 @@ class DLTScraper(DataSource):
         self.fallback_url = DLT_CONFIG["fallback_url"]
         fallback_headers = {
             "User-Agent": base_headers.get("User-Agent", ""),
-            "Accept": "application/json, text/plain, */*",
+            "Accept": "*/*",
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
             "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive",
+            "Pragma": "no-cache",
+            "Cache-Control": "no-cache",
         }
         for key, value in DLT_CONFIG.get("fallback_headers", {}).items():
             if value is not None and str(value).strip() != "":
@@ -376,39 +378,45 @@ class DLTScraper(DataSource):
                 # 先访问首页，拿到可能需要的会话 cookie
                 try:
                     session.get("https://jc.zhcw.com/", timeout=10)
+                    # 再访问大乐透页面，提升与浏览器访问链路一致性
+                    session.get("https://jc.zhcw.com/kjxx/dlt/", timeout=10)
                 except Exception:
                     pass
 
                 for attempt, p in enumerate(dedup, start=1):
                     try:
-                        response = session.get(
-                            self.fallback_url,
-                            params=p,
-                            timeout=15
-                        )
-                        text = response.text or ""
-                        if not text and response.content:
-                            # 某些情况下 text 为空，兜底从 bytes 解码
-                            text = response.content.decode(
-                                response.encoding or "utf-8",
-                                errors="ignore"
+                        # 某些网关首次请求可能只回 cookie/空体，允许同参二次重试
+                        for sub_attempt in range(1, 3):
+                            response = session.get(
+                                self.fallback_url,
+                                params=p,
+                                timeout=15
                             )
+                            text = response.text or ""
+                            if not text and response.content:
+                                # 某些情况下 text 为空，兜底从 bytes 解码
+                                text = response.content.decode(
+                                    response.encoding or "utf-8",
+                                    errors="ignore"
+                                )
 
-                        data = self._parse_json_or_jsonp(text)
-                        if data and isinstance(data.get("data"), list):
-                            return data
+                            data = self._parse_json_or_jsonp(text)
+                            if data and isinstance(data.get("data"), list):
+                                return data
 
-                        logger.warning(
-                            "ZHCW API 第 %s 页响应不可用: status=%s, attempt=%s, "
-                            "content_type=%s, len=%s, params=%s, body=%s",
-                            page_no,
-                            response.status_code,
-                            attempt,
-                            response.headers.get("Content-Type", ""),
-                            len(text),
-                            p,
-                            text[:280]
-                        )
+                            logger.warning(
+                                "ZHCW API 第 %s 页响应不可用: status=%s, attempt=%s.%s, "
+                                "content_type=%s, len=%s, set_cookie=%s, params=%s, body=%s",
+                                page_no,
+                                response.status_code,
+                                attempt,
+                                sub_attempt,
+                                response.headers.get("Content-Type", ""),
+                                len(text),
+                                "set-cookie" in {k.lower() for k in response.headers.keys()},
+                                p,
+                                text[:280]
+                            )
                     except Exception as e:
                         logger.warning(
                             "ZHCW API 第 %s 页请求失败: attempt=%s, params=%s, err=%s",
