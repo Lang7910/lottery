@@ -9,6 +9,9 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import math
 import re
+import json
+import random
+import time
 
 from sources.base import DataSource
 from config import DLT_CONFIG
@@ -44,6 +47,19 @@ class DLTScraper(DataSource):
                 base_headers[key] = str(value).strip()
         self.headers = base_headers
         self.default_params = DLT_CONFIG["default_params"].copy()
+        self.fallback_url = DLT_CONFIG["fallback_url"]
+        fallback_headers = {
+            "User-Agent": base_headers.get("User-Agent", ""),
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+        }
+        for key, value in DLT_CONFIG.get("fallback_headers", {}).items():
+            if value is not None and str(value).strip() != "":
+                fallback_headers[key] = str(value).strip()
+        self.fallback_headers = fallback_headers
+        self.fallback_default_params = DLT_CONFIG["fallback_default_params"].copy()
 
     @staticmethod
     def _first_non_empty(item: Dict[str, Any], keys: List[str], default: str = "") -> str:
@@ -75,9 +91,39 @@ class DLTScraper(DataSource):
         text = str(raw)
         # 直接提取所有连续数字，自动忽略 "+" 等分隔符
         return [int(x) for x in re.findall(r"\d+", text)]
+
+    @staticmethod
+    def _parse_json_or_jsonp(raw_text: str) -> Dict[str, Any]:
+        """兼容 JSON 与 JSONP 响应"""
+        if not raw_text:
+            return {}
+        text = raw_text.strip()
+        try:
+            data = json.loads(text)
+            return data if isinstance(data, dict) else {}
+        except ValueError:
+            pass
+
+        # JSONP: callback({...})
+        match = re.match(r"^[^(]*\((.*)\)\s*;?\s*$", text, flags=re.S)
+        if not match:
+            return {}
+        try:
+            data = json.loads(match.group(1))
+            return data if isinstance(data, dict) else {}
+        except ValueError:
+            return {}
     
     async def fetch_by_count(self, count: int) -> List[Dict[str, Any]]:
-        """按期数获取大乐透数据 - 通过多页获取超过100期"""
+        """按期数获取大乐透数据（主源失败时自动切换备用源）"""
+        data = await self._fetch_by_count_sporttery(count)
+        if data:
+            return data
+        logger.warning("DLT 主源不可用，切换到中彩网备用源")
+        return await self._fetch_by_count_zhcw(count)
+
+    async def _fetch_by_count_sporttery(self, count: int) -> List[Dict[str, Any]]:
+        """按期数从体育彩主源获取数据"""
         all_results = []
         total_pages = math.ceil(count / self.PAGE_SIZE)
         
@@ -113,7 +159,15 @@ class DLTScraper(DataSource):
         return all_results[:count]
     
     async def fetch_by_period(self, start: str, end: str) -> List[Dict[str, Any]]:
-        """按期号范围获取大乐透数据"""
+        """按期号范围获取大乐透数据（主源失败时自动切换备用源）"""
+        data = await self._fetch_by_period_sporttery(start, end)
+        if data:
+            return data
+        logger.warning("DLT 主源不可用，切换到中彩网备用源")
+        return await self._fetch_by_period_zhcw(start, end)
+
+    async def _fetch_by_period_sporttery(self, start: str, end: str) -> List[Dict[str, Any]]:
+        """按期号范围从体育彩主源获取数据"""
         all_results = []
         page_no = 1
         
@@ -149,6 +203,81 @@ class DLTScraper(DataSource):
             
             page_no += 1
         
+        return all_results
+
+    async def _fetch_by_count_zhcw(self, count: int) -> List[Dict[str, Any]]:
+        """按期数从中彩网备用源获取数据"""
+        all_results = []
+        total_pages = math.ceil(count / self.PAGE_SIZE)
+        loop = asyncio.get_event_loop()
+
+        for page_no in range(1, total_pages + 1):
+            params = {
+                **self.fallback_default_params,
+                "issueCount": str(count),
+                "pageNum": str(page_no),
+                "pageSize": str(self.PAGE_SIZE),
+                "callback": f"jQuery{int(time.time() * 1000)}_{page_no}",
+                "tt": f"{random.random():.16f}",
+                "_": str(int(time.time() * 1000)),
+            }
+            page_data = await loop.run_in_executor(
+                _executor, self._sync_fetch_page_zhcw, params, page_no
+            )
+            if not page_data:
+                break
+
+            parsed = self._parse_results_zhcw(page_data)
+            all_results.extend(parsed)
+            if len(all_results) >= count:
+                break
+
+            try:
+                api_total_pages = int(str(page_data.get("pages", "1")))
+            except ValueError:
+                api_total_pages = 1
+            if page_no >= api_total_pages:
+                break
+
+        return all_results[:count]
+
+    async def _fetch_by_period_zhcw(self, start: str, end: str) -> List[Dict[str, Any]]:
+        """按期号范围从中彩网备用源获取数据"""
+        all_results = []
+        page_no = 1
+        loop = asyncio.get_event_loop()
+
+        while True:
+            params = {
+                **self.fallback_default_params,
+                "issueCount": "",
+                "startIssue": start,
+                "endIssue": end,
+                "pageNum": str(page_no),
+                "pageSize": str(self.PAGE_SIZE),
+                "callback": f"jQuery{int(time.time() * 1000)}_{page_no}",
+                "tt": f"{random.random():.16f}",
+                "_": str(int(time.time() * 1000)),
+            }
+            page_data = await loop.run_in_executor(
+                _executor, self._sync_fetch_page_zhcw, params, page_no
+            )
+            if not page_data:
+                break
+
+            parsed = self._parse_results_zhcw(page_data)
+            if not parsed:
+                break
+            all_results.extend(parsed)
+
+            try:
+                total_pages = int(str(page_data.get("pages", "1")))
+            except ValueError:
+                total_pages = 1
+            if page_no >= total_pages:
+                break
+            page_no += 1
+
         return all_results
     
     def _sync_fetch_page(self, params: dict, page_no: int) -> Dict[str, Any]:
@@ -217,6 +346,31 @@ class DLTScraper(DataSource):
 
         logger.error("获取大乐透第 %s 页数据失败: %s", page_no, last_error or "未知错误")
         return {}
+
+    def _sync_fetch_page_zhcw(self, params: dict, page_no: int) -> Dict[str, Any]:
+        """从中彩网备用源同步获取单页数据（JSON/JSONP）"""
+        try:
+            response = requests.get(
+                self.fallback_url,
+                headers=self.fallback_headers,
+                params=params,
+                timeout=15
+            )
+            text = response.text or ""
+            data = self._parse_json_or_jsonp(text)
+            if not data or "data" not in data:
+                logger.warning(
+                    "ZHCW API 第 %s 页响应格式异常: status=%s, params=%s, body=%s",
+                    page_no,
+                    response.status_code,
+                    params,
+                    text[:280]
+                )
+                return {}
+            return data
+        except Exception as e:
+            logger.warning("获取中彩网大乐透第 %s 页失败: %s", page_no, e)
+            return {}
     
     def _parse_results(self, json_data: dict) -> List[Dict[str, Any]]:
         """解析响应数据"""
@@ -265,5 +419,46 @@ class DLTScraper(DataSource):
                 })
             except (KeyError, ValueError, IndexError) as e:
                 logger.error(f"解析大乐透数据失败: {e}")
+                continue
+        return results
+
+    def _parse_results_zhcw(self, json_data: dict) -> List[Dict[str, Any]]:
+        """解析中彩网备用源响应"""
+        results = []
+        for item in json_data.get("data", []):
+            try:
+                period = self._first_non_empty(item, ["issue", "period"])
+                front_area = self._extract_draw_numbers(item.get("frontWinningNum"))
+                back_area = self._extract_draw_numbers(item.get("backWinningNum"))
+                if len(front_area) < 5 or len(back_area) < 2:
+                    logger.warning(
+                        "解析中彩网大乐透号码失败: period=%s, front=%s, back=%s",
+                        period,
+                        item.get("frontWinningNum"),
+                        item.get("backWinningNum")
+                    )
+                    continue
+
+                open_time = self._first_non_empty(item, ["openTime"])
+                # 模型中没有单独开奖日期字段，复用 sale_end_time 保留日期信息
+                if open_time and len(open_time) == 10:
+                    sale_end_time = f"{open_time} 21:00:00"
+                else:
+                    sale_end_time = open_time
+
+                results.append({
+                    "period": period,
+                    "front1": front_area[0],
+                    "front2": front_area[1],
+                    "front3": front_area[2],
+                    "front4": front_area[3],
+                    "front5": front_area[4],
+                    "back1": back_area[0],
+                    "back2": back_area[1],
+                    "sale_begin_time": "",
+                    "sale_end_time": sale_end_time,
+                })
+            except (KeyError, ValueError, IndexError) as e:
+                logger.warning("解析中彩网大乐透数据失败: %s", e)
                 continue
         return results

@@ -17,6 +17,10 @@ services:
       - DLT_REFERER=${DLT_REFERER}
       - DLT_ORIGIN=${DLT_ORIGIN}
       - DLT_ACCEPT_LANGUAGE=${DLT_ACCEPT_LANGUAGE}
+      - DLT_FALLBACK_USER_AGENT=${DLT_FALLBACK_USER_AGENT}
+      - DLT_FALLBACK_COOKIE=${DLT_FALLBACK_COOKIE}
+      - DLT_FALLBACK_REFERER=${DLT_FALLBACK_REFERER}
+      - DLT_FALLBACK_ORIGIN=${DLT_FALLBACK_ORIGIN}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
