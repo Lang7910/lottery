@@ -148,30 +148,70 @@ class DLTScraper(DataSource):
     
     def _sync_fetch_page(self, params: dict, page_no: int) -> Dict[str, Any]:
         """同步获取单页数据"""
-        try:
-            response = requests.get(
-                self.url, 
-                headers=self.headers, 
-                params=params,
-                timeout=15
-            )
-            response.raise_for_status()
-            data = response.json()
+        # 同一请求做多组参数重试，兼容接口策略变化或风控差异
+        candidate_params = []
+        base_params = params.copy()
+        candidate_params.append(base_params)
 
-            value = data.get("value", {})
-            if not isinstance(value, dict) or "list" not in value:
-                logger.warning(
-                    "DLT API 第 %s 页响应格式异常, keys=%s, body=%s",
-                    page_no,
-                    list(data.keys())[:10],
-                    str(data)[:300]
+        no_term = base_params.copy()
+        no_term.pop("termLimits", None)
+        candidate_params.append(no_term)
+
+        no_verify = no_term.copy()
+        no_verify["isVerify"] = "0"
+        candidate_params.append(no_verify)
+
+        # 去重，防止重复请求同参数
+        dedup = []
+        seen = set()
+        for p in candidate_params:
+            key = tuple(sorted((k, str(v)) for k, v in p.items()))
+            if key not in seen:
+                seen.add(key)
+                dedup.append(p)
+
+        last_error = None
+        for attempt, p in enumerate(dedup, start=1):
+            try:
+                response = requests.get(
+                    self.url,
+                    headers=self.headers,
+                    params=p,
+                    timeout=15
                 )
-                return {}
 
-            return data
-        except Exception as e:
-            logger.error(f"获取大乐透第 {page_no} 页数据失败: {e}")
-            return {}
+                # 兼容接口返回非200但body仍是可用JSON的情况（例如 567）
+                text = response.text or ""
+                try:
+                    data = response.json()
+                except ValueError:
+                    data = None
+
+                if data:
+                    value = data.get("value", {})
+                    if isinstance(value, dict) and "list" in value:
+                        if response.status_code >= 400:
+                            logger.warning(
+                                "DLT API 第 %s 页状态码 %s 但JSON可用, attempt=%s, params=%s",
+                                page_no,
+                                response.status_code,
+                                attempt,
+                                p
+                            )
+                        return data
+
+                # JSON不可用或结构异常，记录后继续重试
+                last_error = (
+                    f"status={response.status_code}, "
+                    f"attempt={attempt}, params={p}, body={text[:280]}"
+                )
+                logger.warning("DLT API 第 %s 页响应不可用: %s", page_no, last_error)
+            except Exception as e:
+                last_error = f"attempt={attempt}, params={p}, err={e}"
+                logger.warning("DLT API 第 %s 页请求异常: %s", page_no, last_error)
+
+        logger.error("获取大乐透第 %s 页数据失败: %s", page_no, last_error or "未知错误")
+        return {}
     
     def _parse_results(self, json_data: dict) -> List[Dict[str, Any]]:
         """解析响应数据"""
